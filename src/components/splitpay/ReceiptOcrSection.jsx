@@ -8,14 +8,13 @@ import {
   MessageCircle, 
   Plus, 
   Trash2, 
-  UserCheck, 
   Receipt, 
   Zap, 
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
-  RefreshCw,
-  Users
+  Users,
+  RotateCcw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';
@@ -27,24 +26,28 @@ import {
 } from '../../utils/receiptOcrEngine';
 
 const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
-  // Active selected or uploaded receipt
-  const [activeReceipt, setActiveReceipt] = useState(SAMPLE_RECEIPTS[0]);
+  // Start with completely blank receipt state (no default pre-filled items)
+  const [activeReceipt, setActiveReceipt] = useState(null);
   const [uploadedImagePreview, setUploadedImagePreview] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccessToast, setScanSuccessToast] = useState(false);
 
-  // Editable receipt fields
-  const [receiptName, setReceiptName] = useState(SAMPLE_RECEIPTS[0].name);
-  const [items, setItems] = useState(SAMPLE_RECEIPTS[0].items);
-  const [tax, setTax] = useState(SAMPLE_RECEIPTS[0].tax);
-  const [tipOrFee, setTipOrFee] = useState(SAMPLE_RECEIPTS[0].tipOrFee);
+  // Editable receipt fields — defaults to blank so user can enter on their own
+  const [receiptName, setReceiptName] = useState('');
+  const [items, setItems] = useState([]);
+  const [tax, setTax] = useState('');
+  const [tipOrFee, setTipOrFee] = useState('');
 
-  // Squad members participating in this meal
+  // Form inputs for user to add items manually
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemPrice, setNewItemPrice] = useState('');
+
+  // Squad members participating in this meal (defaults to Host only)
   const [squad, setSquad] = useState([
     { id: 'm-1', name: currentUser?.name || 'You (Host)', avatar: currentUser?.avatar || '👑', isHost: true },
     { id: 'm-2', name: 'Rohit K.', avatar: '👨‍💻', isHost: false },
     { id: 'm-3', name: 'Priya S.', avatar: '👩‍🎨', isHost: false },
-    { id: 'm-4', name: 'Aman M.', avatar: '🎒', isHost: false },
+    { id: 'm-4', name: 'Aman M.', avatar: '🎒', isHost: false }
   ]);
 
   const [newFriendName, setNewFriendName] = useState('');
@@ -52,25 +55,18 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
   const fileInputRef = useRef(null);
 
   // Claims map: { [itemId]: [memberId1, memberId2, ...] }
-  // Pre-seed first sample so users immediately see how "tap what you ordered" works
-  const [claims, setClaims] = useState({
-    'item-1': ['m-1', 'm-2'], // Farmhouse shared by You and Rohit
-    'item-2': ['m-3', 'm-4'], // Peppy Paneer shared by Priya and Aman
-    'item-3': ['m-1', 'm-2', 'm-3', 'm-4'], // Garlic bread shared by everyone
-    'item-4': ['m-2', 'm-4'], // Pepsi shared by Rohit and Aman
-    'item-5': ['m-1', 'm-3'] // Choco lava shared by You and Priya
-  });
+  const [claims, setClaims] = useState({});
 
   // Calculate live breakdown
   const splitResult = calculateItemizedSplit({
     items,
-    tax,
-    tipOrFee,
+    tax: Number(tax) || 0,
+    tipOrFee: Number(tipOrFee) || 0,
     members: squad,
     claims
   });
 
-  // Handle selecting a sample receipt
+  // Handle selecting a sample template (optional)
   const handleSelectSample = (sample) => {
     sound.playClick();
     setIsScanning(true);
@@ -83,7 +79,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
       setTax(sample.tax);
       setTipOrFee(sample.tipOrFee);
 
-      // Default distribution: allocate first few items to squad
+      // Distribute sample items across squad
       const newClaims = {};
       sample.items.forEach((it, idx) => {
         if (squad.length > 0) {
@@ -141,6 +137,59 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
     reader.readAsDataURL(file);
   };
 
+  // Add custom item manually
+  const handleAddItem = (e) => {
+    e.preventDefault();
+    if (!newItemName.trim() || !newItemPrice) return;
+
+    sound.playClick();
+    const newItem = {
+      id: 'item-' + Date.now(),
+      name: newItemName.trim(),
+      qty: 1,
+      price: Math.max(1, Number(newItemPrice)),
+      category: 'Custom'
+    };
+
+    setItems((prev) => [...prev, newItem]);
+    
+    // Auto-claim for host if squad has 1 person, otherwise leave for users to tap
+    if (squad.length === 1) {
+      setClaims((prev) => ({ ...prev, [newItem.id]: [squad[0].id] }));
+    }
+
+    setNewItemName('');
+    setNewItemPrice('');
+    sound.playUpiSuccess();
+  };
+
+  // Delete individual item
+  const handleDeleteItem = (itemId) => {
+    sound.playClick();
+    setItems((prev) => prev.filter((it) => it.id !== itemId));
+    setClaims((prev) => {
+      const copy = { ...prev };
+      delete copy[itemId];
+      return copy;
+    });
+  };
+
+  // Reset entire receipt to blank slate
+  const handleResetReceipt = () => {
+    sound.playClick();
+    if (items.length > 0 || receiptName) {
+      if (!window.confirm("Clear all items and reset this receipt to blank (00)?")) return;
+    }
+    setActiveReceipt(null);
+    setUploadedImagePreview(null);
+    setReceiptName('');
+    setItems([]);
+    setTax('');
+    setTipOrFee('');
+    setClaims({});
+    sound.playUpiSuccess();
+  };
+
   // Toggle a member's claim on an item
   const handleToggleClaim = (itemId, memberId) => {
     sound.playClick();
@@ -183,7 +232,6 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
   const handleRemoveFriend = (memberId) => {
     sound.playClick();
     setSquad((prev) => prev.filter((m) => m.id !== memberId));
-    // Clean claims
     setClaims((prev) => {
       const cleaned = {};
       Object.keys(prev).forEach((key) => {
@@ -206,7 +254,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
 
     if (onApplyToSplitter) {
       onApplyToSplitter({
-        tripName: receiptName,
+        tripName: receiptName || 'Itemized Bill Split',
         totalAmount: splitResult.grandTotal,
         members: splitResult.breakdown.map((b) => ({
           id: b.id,
@@ -230,7 +278,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
     sound.playClick();
     sound.playUpiSuccess();
     const summary = buildItemizedWhatsAppSummary({
-      receiptName,
+      receiptName: receiptName || 'Bill Split',
       breakdown: splitResult.breakdown,
       hostUpi: currentUser?.upiId || 'prince@oksbi',
       grandTotal: splitResult.grandTotal
@@ -250,7 +298,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
       .map((it) => `${it.name} (₹${Math.round(it.sharePrice)}${it.isShared ? ' - shared' : ''})`)
       .join(', ');
 
-    const text = `Hey ${friendBreakdown.name}! 🧾 In our *${receiptName}* bill:\n` +
+    const text = `Hey ${friendBreakdown.name}! 🧾 In our *${receiptName || 'Group'}* bill:\n` +
       `You ordered: ${itemsList || 'Items'}\n` +
       `Your total share (incl. tax): *₹${friendBreakdown.totalAmount}*\n` +
       `Pay via UPI: upi://pay?pa=${currentUser?.upiId || 'prince@oksbi'}&am=${friendBreakdown.totalAmount} 🚀`;
@@ -274,7 +322,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
           </h2>
 
           <p className="text-xs sm:text-sm text-white/70 max-w-2xl leading-relaxed">
-            No more dividing bills equally when someone just had water. Snap any restaurant or cafe bill, auto-detect items and prices, and let friends tap only what they ate.
+            Add dishes on your own, snap a bill photo, or try a template. Then tap only the items you ate to split fairly with proportional taxes.
           </p>
         </div>
 
@@ -284,19 +332,33 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
           {/* Left Column: Bill Capture, Scanner & Extracted Items */}
           <div className="lg:col-span-7 space-y-6">
             
-            {/* Step 1: Upload or Choose Sample Receipt */}
+            {/* Step 1: Upload, Snap or Choose Template */}
             <div className="p-5 sm:p-6 rounded-2xl bg-[#121324] border border-white/10 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs font-mono font-bold text-white/60 uppercase tracking-wider">
-                  Step 1: Capture or Select Receipt
+                  Step 1: Capture, Upload or Add Manually
                 </span>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs font-['Space_Grotesk'] flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  <span>Snap / Upload Photo</span>
-                </button>
+                
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs font-['Space_Grotesk'] flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Snap / Upload Bill</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetReceipt}
+                    className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-red-400 border border-white/10 text-xs font-mono transition-colors cursor-pointer flex items-center gap-1"
+                    title="Clear all receipt data"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset (00)</span>
+                  </button>
+                </div>
+
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -306,16 +368,16 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                 />
               </div>
 
-              {/* Sample Quick Chips */}
+              {/* Optional Sample Quick Chips */}
               <div className="space-y-1.5">
-                <div className="text-[11px] font-mono text-white/40">Try with real sample receipts:</div>
+                <div className="text-[11px] font-mono text-white/40">Or test with quick sample templates (optional):</div>
                 <div className="flex flex-wrap gap-2">
                   {SAMPLE_RECEIPTS.map((sample) => (
                     <button
                       key={sample.id}
                       onClick={() => handleSelectSample(sample)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
-                        activeReceipt.id === sample.id && !uploadedImagePreview
+                      className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
+                        activeReceipt?.id === sample.id && !uploadedImagePreview
                           ? 'bg-[#0082FB]/20 text-[#0082FB] border border-[#0082FB]/40 font-bold'
                           : 'bg-white/5 hover:bg-white/10 text-white/70 border border-white/10'
                       }`}
@@ -346,10 +408,10 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                     <span>Uploaded Photo Processed ({receiptName})</span>
                   </div>
                   <button 
-                    onClick={() => handleSelectSample(SAMPLE_RECEIPTS[0])}
+                    onClick={handleResetReceipt}
                     className="text-white/50 hover:text-white underline cursor-pointer"
                   >
-                    Reset
+                    Clear
                   </button>
                 </div>
               )}
@@ -411,21 +473,76 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
               </div>
             </div>
 
-            {/* Step 3: Extracted Items & "Tap What You Ordered" Claiming Matrix */}
+            {/* Step 3: Receipt Name, Items List & "Tap What You Ordered" */}
             <div className="p-5 sm:p-6 rounded-2xl bg-[#121324] border border-white/10 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              
+              <div className="flex items-center justify-between pb-3 border-b border-white/10 flex-wrap gap-2">
                 <div>
                   <h3 className="text-sm sm:text-base font-bold text-white font-['Space_Grotesk']">
                     Tap What You Ordered
                   </h3>
                   <p className="text-[11px] text-white/50">
-                    Tap a friend&apos;s avatar to assign an item. Tap multiple friends to split shared dishes evenly!
+                    Tap a friend&apos;s avatar to assign an item. Tap multiple friends to split shared dishes!
                   </p>
                 </div>
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-white/5 text-white/60">
-                  {items.length} Items
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-white/5 text-white/60">
+                    {items.length} Items
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleResetReceipt}
+                    className="px-2 py-0.5 rounded text-[11px] font-mono text-white/40 hover:text-red-400 hover:bg-white/5 border border-white/10 hover:border-red-400/30 transition-all cursor-pointer flex items-center gap-1"
+                    title="Clear all receipt items"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Clear All</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Receipt Name Field */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-mono text-white/50 block">RECEIPT / RESTAURANT NAME</label>
+                <input
+                  type="text"
+                  value={receiptName}
+                  onChange={(e) => setReceiptName(e.target.value)}
+                  placeholder="Enter restaurant or bill name (e.g. Cafe Blue, Dinner Split)"
+                  className="w-full px-3.5 py-2 rounded-xl bg-[#0B0C16] border border-white/15 text-white text-sm focus:border-[#C6FF3D] focus:outline-none font-medium"
+                />
+              </div>
+
+              {/* Add Custom Item Form (Allows user to add items freely on their own) */}
+              <form onSubmit={handleAddItem} className="p-3.5 rounded-xl bg-white/[0.02] border border-dashed border-white/15 space-y-2">
+                <div className="text-[11px] font-mono text-white/60">Add a dish or item to this bill:</div>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Dish or Item Name (e.g. Butter Chicken, Cold Coffee)"
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    className="sm:col-span-7 px-3 py-2 rounded-lg bg-[#0B0C16] border border-white/15 text-white text-xs focus:border-[#C6FF3D] focus:outline-none"
+                    required
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Price (₹)"
+                    value={newItemPrice}
+                    onChange={(e) => setNewItemPrice(e.target.value)}
+                    className="sm:col-span-2 px-3 py-2 rounded-lg bg-[#0B0C16] border border-white/15 text-white text-xs font-mono font-bold focus:border-[#C6FF3D] focus:outline-none"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="sm:col-span-3 py-2 rounded-lg bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs font-['Space_Grotesk'] transition-all flex items-center justify-center gap-1 cursor-pointer shadow-sm active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Item</span>
+                  </button>
+                </div>
+              </form>
 
               {/* Items List */}
               <div className="space-y-3">
@@ -452,7 +569,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                               {item.name}
                             </span>
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-white/40">
-                              Qty: {item.qty}
+                              Qty: {item.qty || 1}
                             </span>
                           </div>
 
@@ -471,8 +588,8 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                           </div>
                         </div>
 
-                        {/* Friend Claim Buttons */}
-                        <div className="flex items-center gap-1.5 flex-wrap justify-end shrink-0 max-w-[260px]">
+                        {/* Friend Claim Buttons & Delete Action */}
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end shrink-0 max-w-[280px]">
                           {squad.map((member) => {
                             const hasClaimed = claimants.includes(member.id);
 
@@ -492,12 +609,33 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                               </button>
                             );
                           })}
+
+                          {/* Delete Item Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="p-1 text-white/30 hover:text-red-400 transition-colors cursor-pointer ml-1"
+                            title={`Delete ${item.name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
 
                       </div>
                     </div>
                   );
                 })}
+
+                {/* Empty Items Message */}
+                {items.length === 0 && (
+                  <div className="p-8 rounded-xl bg-[#0B0C16] border border-dashed border-white/15 text-center space-y-2">
+                    <Receipt className="w-8 h-8 text-white/30 mx-auto" />
+                    <p className="text-sm font-bold text-white font-['Space_Grotesk']">No items in this bill yet</p>
+                    <p className="text-xs text-white/50 max-w-sm mx-auto">
+                      Use the &quot;Add a dish or item&quot; form above to add your items, or snap a bill photo to detect them automatically.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Taxes & Delivery Charges */}
@@ -506,8 +644,10 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                   <label className="text-white/40 text-[10px] block">GST / SERVICE TAX (₹)</label>
                   <input
                     type="number"
+                    min="0"
+                    placeholder="00"
                     value={tax}
-                    onChange={(e) => setTax(Math.max(0, Number(e.target.value)))}
+                    onChange={(e) => setTax(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
                     className="w-full mt-1 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white font-bold focus:border-[#C6FF3D] focus:outline-none"
                   />
                 </div>
@@ -515,8 +655,10 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                   <label className="text-white/40 text-[10px] block">TIP / PACKAGING / DELIVERY (₹)</label>
                   <input
                     type="number"
+                    min="0"
+                    placeholder="00"
                     value={tipOrFee}
-                    onChange={(e) => setTipOrFee(Math.max(0, Number(e.target.value)))}
+                    onChange={(e) => setTipOrFee(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
                     className="w-full mt-1 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white font-bold focus:border-[#C6FF3D] focus:outline-none"
                   />
                 </div>
@@ -536,21 +678,23 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                 <div>
                   <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider block">RECEIPT TOTAL</span>
                   <span className="text-2xl font-black text-white font-['Space_Grotesk']">
-                    ₹{splitResult.grandTotal.toLocaleString('en-IN')}
+                    ₹{splitResult.grandTotal > 0 ? splitResult.grandTotal.toLocaleString('en-IN') : '00'}
                   </span>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] font-mono text-[#C6FF3D] uppercase tracking-wider block">CLAIMED BY SQUAD</span>
                   <span className="text-2xl font-black text-[#C6FF3D] font-['Space_Grotesk']">
-                    ₹{splitResult.breakdown.reduce((acc, b) => acc + b.totalAmount, 0).toLocaleString('en-IN')}
+                    ₹{splitResult.breakdown.reduce((acc, b) => acc + b.totalAmount, 0) > 0 
+                      ? splitResult.breakdown.reduce((acc, b) => acc + b.totalAmount, 0).toLocaleString('en-IN') 
+                      : '00'}
                   </span>
                 </div>
               </div>
 
-              {!splitResult.isFullyClaimed && (
+              {!splitResult.isFullyClaimed && items.length > 0 && (
                 <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span>{splitResult.unclaimedItems.length} item(s) are still unclaimed! Tap friends to assign them.</span>
+                  <span>{splitResult.unclaimedItems.length} item(s) are unclaimed. Tap friends to assign them.</span>
                 </div>
               )}
 
@@ -580,7 +724,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
 
                       <div className="text-right">
                         <span className="text-base font-black text-[#C6FF3D] font-['Space_Grotesk'] block">
-                          ₹{person.totalAmount.toLocaleString('en-IN')}
+                          ₹{person.totalAmount > 0 ? person.totalAmount.toLocaleString('en-IN') : '00'}
                         </span>
                         {person.taxAndFees > 0 && (
                           <span className="text-[10px] font-mono text-white/40">
@@ -621,7 +765,12 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
               <div className="space-y-2.5 pt-2">
                 <button
                   onClick={handleApplyToSplitter}
-                  className="w-full py-3.5 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-sm font-['Space_Grotesk'] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#C6FF3D]/10 active:scale-95 cursor-pointer"
+                  disabled={items.length === 0}
+                  className={`w-full py-3.5 rounded-xl font-bold text-sm font-['Space_Grotesk'] transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 ${
+                    items.length === 0
+                      ? 'bg-white/10 text-white/40 cursor-not-allowed'
+                      : 'bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] shadow-[#C6FF3D]/10 cursor-pointer'
+                  }`}
                 >
                   <Zap className="w-4 h-4 fill-current" />
                   <span>Apply to Trip Bill Creator</span>
@@ -631,7 +780,8 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={handleCopySummary}
-                    className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-medium border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    disabled={items.length === 0}
+                    className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-medium border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {copiedSummary ? (
                       <>
@@ -649,14 +799,15 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                   <button
                     onClick={() => {
                       const summary = buildItemizedWhatsAppSummary({
-                        receiptName,
+                        receiptName: receiptName || 'Bill Split',
                         breakdown: splitResult.breakdown,
                         hostUpi: currentUser?.upiId || 'prince@oksbi',
                         grandTotal: splitResult.grandTotal
                       });
                       openWhatsAppDirect('', summary);
                     }}
-                    className="py-2.5 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] text-xs font-medium border border-[#25D366]/30 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    disabled={items.length === 0}
+                    className="py-2.5 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] text-xs font-medium border border-[#25D366]/30 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
                     <span>WhatsApp Group</span>
@@ -666,7 +817,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
 
               <div className="flex items-center justify-center gap-2 text-[10px] font-mono text-white/40 pt-1 border-t border-white/5">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#C6FF3D]" />
-                <span>Fair math &bull; No rounding discrepancies &bull; 1-Tap UPI ready</span>
+                <span>Fair math &bull; Add any item &bull; 1-Tap UPI ready</span>
               </div>
 
             </div>
