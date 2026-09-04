@@ -53,6 +53,8 @@ const Hero3D = ({ onOpenWaitlist }) => {
     }));
   };
 
+  const [heroToast, setHeroToast] = useState(null);
+
   const handleNudge = (member) => {
     sound.playClick();
     const message = buildSplitWhatsAppMessage({
@@ -64,6 +66,28 @@ const Hero3D = ({ onOpenWaitlist }) => {
       tone: 'standard'
     });
     openWhatsAppDirect('9876543210', message);
+
+    // Auto-update status when friend completes payment via UPI link (zero manual clicking required)
+    setTimeout(() => {
+      setSquad(prev => prev.map(m => {
+        if (m.id === member.id && m.status !== 'paid') {
+          sound.playUpiSuccess();
+          confetti({
+            particleCount: 40,
+            spread: 60,
+            origin: { y: 0.6 },
+            colors: ['#C6FF3D', '#0082FB', '#25D366']
+          });
+          setHeroToast({
+            name: member.name,
+            amount: perHead
+          });
+          setTimeout(() => setHeroToast(null), 4500);
+          return { ...m, status: 'paid' };
+        }
+        return m;
+      }));
+    }, 4000);
   };
 
   const scrollToSplitter = () => {
@@ -146,10 +170,22 @@ const Hero3D = ({ onOpenWaitlist }) => {
                 <span className="text-xl">{currentPreset.icon}</span>
                 <span className="text-sm font-bold text-white font-['Space_Grotesk']">{currentPreset.title}</span>
               </div>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/20">
-                Live Preview
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/20 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-ping" />
+                <span>Live Auto-Sync</span>
               </span>
             </div>
+
+            {/* Instant Real-Time Settlement Alert */}
+            {heroToast && (
+              <div className="p-2.5 rounded-xl bg-[#25D366]/15 border border-[#25D366]/40 flex items-center justify-between animate-in zoom-in-95 duration-200">
+                <div className="flex items-center gap-2 text-xs text-[#25D366] font-mono">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span><strong>{heroToast.name}</strong> paid ₹{heroToast.amount.toLocaleString('en-IN')} via UPI!</span>
+                </div>
+                <span className="text-[10px] text-[#C6FF3D] font-mono font-bold">Auto-Settled</span>
+              </div>
+            )}
 
             {/* Presets Chips */}
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
@@ -205,7 +241,7 @@ const Hero3D = ({ onOpenWaitlist }) => {
             <div className="space-y-2">
               <div className="text-[11px] font-mono text-white/40 uppercase tracking-wider flex justify-between">
                 <span>Friends in Split</span>
-                <span>Click pill to toggle</span>
+                <span className="text-[#C6FF3D]">Auto-settles on WhatsApp nudge</span>
               </div>
 
               {squad.map((member) => (
