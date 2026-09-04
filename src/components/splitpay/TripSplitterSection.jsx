@@ -14,7 +14,8 @@ import {
   X, 
   ExternalLink,
   Zap,
-  RotateCcw
+  RotateCcw,
+  BookmarkCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';
@@ -61,6 +62,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   const [qrTargetMember, setQrTargetMember] = useState(null);
   const [qrPaymentStatus, setQrPaymentStatus] = useState('waiting');
   const [paymentToast, setPaymentToast] = useState(null);
+  const [savedSuccessToast, setSavedSuccessToast] = useState(false);
 
   const tripPresets = [
     { name: '🏖️ Goa Trip', amount: 7400, tripName: 'Goa Beach Shack & Cabs' },
@@ -290,6 +292,39 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       localStorage.removeItem('splitpay_active_trip_v2');
       localStorage.removeItem('splitpay_active_trip');
       sound.playUpiSuccess();
+    }
+  };
+
+  const handleSaveToDashboard = () => {
+    sound.playClick();
+    sound.playUpiSuccess();
+    const storageKey = `splitpay_trips_${currentUser?.email || 'guest'}`;
+    try {
+      const stored = localStorage.getItem(storageKey);
+      let list = stored ? JSON.parse(stored) : [];
+      const existingIdx = list.findIndex(t => t.tripName.toLowerCase() === tripName.toLowerCase());
+      const tripObj = {
+        id: existingIdx >= 0 ? list[existingIdx].id : 'trip-' + Date.now(),
+        tripName,
+        totalAmount,
+        hostName,
+        hostUpi,
+        category: 'Custom Split',
+        createdAt: new Date().toISOString().split('T')[0],
+        members
+      };
+      if (existingIdx >= 0) {
+        list[existingIdx] = tripObj;
+      } else {
+        list.unshift(tripObj);
+      }
+      localStorage.setItem(storageKey, JSON.stringify(list));
+      window.dispatchEvent(new Event('storage'));
+      setSavedSuccessToast(true);
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+      setTimeout(() => setSavedSuccessToast(false), 3000);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -644,6 +679,17 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                     )}
                   </button>
                 </div>
+
+                {currentUser && (
+                  <button
+                    type="button"
+                    onClick={handleSaveToDashboard}
+                    className="w-full py-2.5 rounded-xl bg-[#C6FF3D]/10 hover:bg-[#C6FF3D]/20 border border-[#C6FF3D]/30 hover:border-[#C6FF3D] text-[#C6FF3D] text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <BookmarkCheck className="w-3.5 h-3.5" />
+                    <span>{savedSuccessToast ? "✓ Saved to My Trips!" : "Save to My Trips Dashboard"}</span>
+                  </button>
+                )}
               </div>
 
             </div>

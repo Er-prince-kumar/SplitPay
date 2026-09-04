@@ -62,82 +62,38 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
   // Storage key specific to current user
   const storageKey = `splitpay_trips_${currentUser?.email || 'guest'}`;
 
-  // Default seed trips for new/existing logged in user
-  const defaultUserTrips = [
-    {
-      id: 'trip-1',
-      tripName: 'Goa Beach Shack & Cabs',
-      totalAmount: 7400,
-      hostName: currentUser?.name || 'Prince Kumar',
-      hostUpi: currentUser?.upiId || 'prince@oksbi',
-      category: 'Vacation',
-      createdAt: '2026-09-02',
-      members: [
-        { id: 1, name: currentUser?.name || 'Prince Kumar', phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
-        { id: 2, name: 'Rohit K.', phone: '9876512345', isHost: false, status: 'pending', avatar: '👨‍💻' },
-        { id: 3, name: 'Priya S.', phone: '9811223344', isHost: false, status: 'pending', avatar: '👩‍🎨' },
-        { id: 4, name: 'Aman M.', phone: '9899887766', isHost: false, status: 'pending', avatar: '🎒' }
-      ]
-    },
-    {
-      id: 'trip-2',
-      tripName: 'Manali Snow Trek & Cabs 2026',
-      totalAmount: 16500,
-      hostName: currentUser?.name || 'Prince Kumar',
-      hostUpi: currentUser?.upiId || 'prince@oksbi',
-      category: 'Adventure',
-      createdAt: '2026-08-28',
-      members: [
-        { id: 1, name: currentUser?.name || 'Prince Kumar', phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
-        { id: 2, name: 'Vicky R.', phone: '9822334455', isHost: false, status: 'paid', avatar: '🏂' },
-        { id: 3, name: 'Neha T.', phone: '9833445566', isHost: false, status: 'paid', avatar: '⛷️' },
-        { id: 4, name: 'Sahil P.', phone: '9844556677', isHost: false, status: 'pending', avatar: '🏕️' },
-        { id: 5, name: 'Pooja M.', phone: '9855667788', isHost: false, status: 'pending', avatar: '🎒' }
-      ]
-    },
-    {
-      id: 'trip-3',
-      tripName: 'Hostel Midnight Biryani Party',
-      totalAmount: 1600,
-      hostName: currentUser?.name || 'Prince Kumar',
-      hostUpi: currentUser?.upiId || 'prince@oksbi',
-      category: 'Food',
-      createdAt: '2026-08-20',
-      members: [
-        { id: 1, name: currentUser?.name || 'Prince Kumar', phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
-        { id: 2, name: 'Ankit D.', phone: '9812345678', isHost: false, status: 'paid', avatar: '🍗' },
-        { id: 3, name: 'Rahul S.', phone: '9823456789', isHost: false, status: 'paid', avatar: '🥤' },
-        { id: 4, name: 'Tanmay V.', phone: '9834567890', isHost: false, status: 'paid', avatar: '🍟' }
-      ]
-    },
-    {
-      id: 'trip-4',
-      tripName: 'Flatmates WiFi & Monthly Groceries',
-      totalAmount: 3600,
-      hostName: currentUser?.name || 'Prince Kumar',
-      hostUpi: currentUser?.upiId || 'prince@oksbi',
-      category: 'Utilities',
-      createdAt: '2026-08-15',
-      members: [
-        { id: 1, name: currentUser?.name || 'Prince Kumar', phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
-        { id: 2, name: 'Sameer B.', phone: '9866778899', isHost: false, status: 'pending', avatar: '🛒' },
-        { id: 3, name: 'Kunal G.', phone: '9877889900', isHost: false, status: 'pending', avatar: '📶' }
-      ]
-    }
-  ];
-
   const [trips, setTrips] = useState(() => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          // Exclude any old pre-filled dummy seeds
+          return parsed.filter(t => !['trip-1', 'trip-2', 'trip-3', 'trip-4'].includes(t.id));
+        }
       }
     } catch (e) {
       console.warn("Could not load user trips from localStorage", e);
     }
-    return defaultUserTrips;
+    return [];
   });
+
+  // Keep trips synced with storage events
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setTrips(parsed.filter(t => !['trip-1', 'trip-2', 'trip-3', 'trip-4'].includes(t.id)));
+          }
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [storageKey]);
 
   // Save trips to localStorage whenever updated
   useEffect(() => {
@@ -500,118 +456,161 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
             </div>
           </div>
 
-          {/* Trips Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filteredTrips.map((trip) => {
-              const perPerson = trip.members.length > 0 ? Math.round(trip.totalAmount / trip.members.length) : 0;
-              const paidMembers = trip.members.filter(m => m.status === 'paid').length;
-              const isSettled = paidMembers === trip.members.length;
-              const progress = Math.round((paidMembers / trip.members.length) * 100);
-
-              return (
-                <div
-                  key={trip.id}
-                  onClick={() => handleOpenTripInSplitter(trip)}
-                  className="p-5 rounded-2xl bg-[#121326] hover:bg-[#16172E] border border-white/10 hover:border-[#C6FF3D]/40 transition-all cursor-pointer space-y-4 group relative flex flex-col justify-between shadow-md"
+          {/* Trips Cards Grid or Clean Empty State */}
+          {filteredTrips.length === 0 ? (
+            <div className="p-8 sm:p-12 rounded-3xl bg-[#121326]/50 border border-white/10 border-dashed text-center space-y-4">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-[#C6FF3D]/10 border border-[#C6FF3D]/20 flex items-center justify-center text-[#C6FF3D]">
+                <FolderKanban className="w-7 h-7" />
+              </div>
+              <div className="space-y-1 max-w-md mx-auto">
+                <h3 className="text-base sm:text-lg font-bold text-white font-['Space_Grotesk']">
+                  {trips.length === 0 ? "No Saved Trips Yet" : "No Trips Found"}
+                </h3>
+                <p className="text-xs font-mono text-white/50">
+                  {trips.length === 0 
+                    ? "Create your first campus trip or expense split to track member payments, UPI settlements, and balances."
+                    : "No trips match the current filter. Switch to 'All' to view all trips."}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setIsCreateModalOpen(true);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs font-mono flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-[#C6FF3D]/10 active:scale-95"
                 >
-                  <div className="space-y-2.5">
-                    
-                    {/* Card Top: Category & Status */}
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-white/60 border border-white/10">
-                        {trip.category || 'Trip'}
-                      </span>
+                  <Plus className="w-4 h-4" />
+                  <span>Create New Trip Split</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    const el = document.getElementById('trip-splitter');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium text-xs font-mono border border-white/10 flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4 text-[#C6FF3D]" />
+                  <span>Open Bill Splitter</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {filteredTrips.map((trip) => {
+                const perPerson = trip.members.length > 0 ? Math.round(trip.totalAmount / trip.members.length) : 0;
+                const paidMembers = trip.members.filter(m => m.status === 'paid').length;
+                const isSettled = paidMembers === trip.members.length;
+                const progress = Math.round((paidMembers / trip.members.length) * 100);
+
+                return (
+                  <div
+                    key={trip.id}
+                    onClick={() => handleOpenTripInSplitter(trip)}
+                    className="p-5 rounded-2xl bg-[#121326] hover:bg-[#16172E] border border-white/10 hover:border-[#C6FF3D]/40 transition-all cursor-pointer space-y-4 group relative flex flex-col justify-between shadow-md"
+                  >
+                    <div className="space-y-2.5">
                       
-                      {isSettled ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#25D366] bg-[#25D366]/15 px-2 py-0.5 rounded-full border border-[#25D366]/30">
-                          <CheckCircle2 className="w-2.5 h-2.5" />
-                          <span>100% Settled</span>
+                      {/* Card Top: Category & Status */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-white/60 border border-white/10">
+                          {trip.category || 'Trip'}
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-amber-400 bg-amber-400/15 px-2 py-0.5 rounded-full border border-amber-400/30">
-                          <Clock className="w-2.5 h-2.5" />
-                          <span>In Progress</span>
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Trip Title */}
-                    <h3 className="text-base font-bold text-white font-['Space_Grotesk'] group-hover:text-[#C6FF3D] transition-colors truncate">
-                      {trip.tripName}
-                    </h3>
-
-                    {/* Numbers: Total & Share */}
-                    <div className="p-3 rounded-xl bg-[#0B0C16] border border-white/5 grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-[10px] font-mono text-white/40 block">TOTAL BILL</span>
-                        <span className="text-lg font-black text-white font-['Space_Grotesk']">
-                          ₹{trip.totalAmount.toLocaleString('en-IN')}
-                        </span>
+                        
+                        {isSettled ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#25D366] bg-[#25D366]/15 px-2 py-0.5 rounded-full border border-[#25D366]/30">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            <span>100% Settled</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-amber-400 bg-amber-400/15 px-2 py-0.5 rounded-full border border-amber-400/30">
+                            <Clock className="w-2.5 h-2.5" />
+                            <span>In Progress</span>
+                          </span>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <span className="text-[10px] font-mono text-[#C6FF3D] block">EACH PERSON</span>
-                        <span className="text-lg font-black text-[#C6FF3D] font-['Space_Grotesk']">
-                          ₹{perPerson.toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    </div>
 
-                    {/* Members Avatars & Progress */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center justify-between text-[11px] font-mono text-white/50">
-                        <div className="flex items-center -space-x-1.5 overflow-hidden">
-                          {trip.members.map((m) => (
-                            <span 
-                              key={m.id} 
-                              className={`inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs ${
-                                m.status === 'paid' 
-                                  ? 'bg-[#C6FF3D]/20 border-[#C6FF3D]/50 text-white' 
-                                  : 'bg-[#1E2038] border-white/20 text-white/70'
-                              }`}
-                              title={`${m.name}: ${m.status.toUpperCase()}`}
-                            >
-                              {m.avatar}
-                            </span>
-                          ))}
+                      {/* Trip Title */}
+                      <h3 className="text-base font-bold text-white font-['Space_Grotesk'] group-hover:text-[#C6FF3D] transition-colors truncate">
+                        {trip.tripName}
+                      </h3>
+
+                      {/* Numbers: Total & Share */}
+                      <div className="p-3 rounded-xl bg-[#0B0C16] border border-white/5 grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] font-mono text-white/40 block">TOTAL BILL</span>
+                          <span className="text-lg font-black text-white font-['Space_Grotesk']">
+                            ₹{trip.totalAmount.toLocaleString('en-IN')}
+                          </span>
                         </div>
-                        <span>{paidMembers}/{trip.members.length} Paid</span>
+                        <div className="text-right">
+                          <span className="text-[10px] font-mono text-[#C6FF3D] block">EACH PERSON</span>
+                          <span className="text-lg font-black text-[#C6FF3D] font-['Space_Grotesk']">
+                            ₹{perPerson.toLocaleString('en-IN')}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-                        <div 
-                          className="bg-gradient-to-r from-[#0082FB] to-[#C6FF3D] h-full rounded-full transition-all duration-300"
-                          style={{ width: `${progress}%` }}
-                        />
+                      {/* Members Avatars & Progress */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-[11px] font-mono text-white/50">
+                          <div className="flex items-center -space-x-1.5 overflow-hidden">
+                            {trip.members.map((m) => (
+                              <span 
+                                key={m.id} 
+                                className={`inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs ${
+                                  m.status === 'paid' 
+                                    ? 'bg-[#C6FF3D]/20 border-[#C6FF3D]/50 text-white' 
+                                    : 'bg-[#1E2038] border-white/20 text-white/70'
+                                }`}
+                                title={`${m.name}: ${m.status.toUpperCase()}`}
+                              >
+                                {m.avatar}
+                              </span>
+                            ))}
+                          </div>
+                          <span>{paidMembers}/{trip.members.length} Paid</span>
+                        </div>
+
+                        <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-[#0082FB] to-[#C6FF3D] h-full rounded-full transition-all duration-300"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
                       </div>
+
+                    </div>
+
+                    {/* Card Bottom Actions */}
+                    <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenTripInSplitter(trip)}
+                        className="text-xs font-mono font-bold text-[#C6FF3D] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Open in Splitter</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteTrip(trip.id, e)}
+                        className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-white/5 transition-colors cursor-pointer"
+                        title="Delete trip"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
                   </div>
-
-                  {/* Card Bottom Actions */}
-                  <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenTripInSplitter(trip)}
-                      className="text-xs font-mono font-bold text-[#C6FF3D] hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Open in Splitter</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteTrip(trip.id, e)}
-                      className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-white/5 transition-colors cursor-pointer"
-                      title="Delete trip"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
         </div>
 
