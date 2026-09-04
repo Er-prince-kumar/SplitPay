@@ -53,6 +53,23 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
             <PlusCircle className="w-4 h-4" />
             <span>Split a Bill</span>
           </a>
+          <a 
+            href="#create-split" 
+            className="hover:text-white transition-colors"
+            onClick={() => sound.playClick()}
+          >
+            Create Split
+          </a>
+          {currentUser && (
+            <a 
+              href="#user-dashboard" 
+              className="px-2.5 py-1 rounded-lg bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/30 font-bold hover:bg-[#C6FF3D]/20 transition-colors flex items-center gap-1.5 cursor-pointer text-xs"
+              onClick={() => sound.playClick()}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-ping" />
+              <span>My Trips</span>
+            </a>
+          )}
           <button 
             type="button"
             onClick={() => {
@@ -157,7 +174,7 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
         <div className="md:hidden px-4 pt-3 pb-6 border-t border-white/10 bg-[#0B0C16] animate-in slide-in-from-top-2 duration-200">
           <nav className="flex flex-col space-y-3 pt-2 text-sm font-medium">
             <a 
-              href="#trip-splitter" 
+              href="#create-split" 
               className="p-2.5 rounded-xl bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/20 font-bold flex items-center gap-2"
               onClick={() => {
                 sound.playClick();
@@ -167,6 +184,20 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
               <PlusCircle className="w-4 h-4" />
               <span>Create Bill Split</span>
             </a>
+
+            {currentUser && (
+              <a 
+                href="#user-dashboard" 
+                className="p-2.5 rounded-xl bg-[#0082FB]/15 text-[#0082FB] border border-[#0082FB]/30 font-bold flex items-center gap-2"
+                onClick={() => {
+                  sound.playClick();
+                  closeMobileMenu();
+                }}
+              >
+                <span className="w-2 h-2 rounded-full bg-[#0082FB] animate-ping" />
+                <span>My Trips & Dashboard</span>
+              </a>
+            )}
 
             <button 
               type="button"

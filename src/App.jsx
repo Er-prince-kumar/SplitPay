@@ -11,6 +11,7 @@ import WaitlistSection from './components/splitpay/WaitlistSection';
 import Footer from './components/splitpay/Footer';
 import AuthModal from './components/splitpay/AuthModal';
 import AIChatDrawer from './components/splitpay/AIChatDrawer';
+import UserDashboard from './components/splitpay/UserDashboard';
 import { sound } from './utils/audio';
 
 function App() {
@@ -44,6 +45,10 @@ function App() {
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
+    setTimeout(() => {
+      const el = document.getElementById('user-dashboard');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 350);
   };
 
   const handleSignOut = () => {
@@ -69,6 +74,12 @@ function App() {
     scrollToSplitter();
   };
 
+  // Called when user clicks "Open in Splitter" on any trip in UserDashboard
+  const handleSelectTrip = (trip) => {
+    setAppliedAITripData(trip);
+    scrollToSplitter();
+  };
+
   return (
     <main className="min-h-screen bg-[#0B0C16] text-[#F5F3EE] relative selection:bg-[#C6FF3D] selection:text-[#0B0C16] overflow-x-hidden font-['Inter']">
       {/* High-Performance Hardware-Accelerated Ambient Backdrop */}
@@ -89,6 +100,15 @@ function App() {
         onOpenWaitlist={scrollToWaitlist} 
         onOpenDemo={scrollToSplitter}
       />
+
+      {/* Personalized User Dashboard with My Trips Hub for Logged In User */}
+      {currentUser && (
+        <UserDashboard 
+          currentUser={currentUser}
+          onSelectTrip={handleSelectTrip}
+          onOpenAIChat={() => setIsAIChatOpen(true)}
+        />
+      )}
 
       {/* The 3 Campus Problems */}
       <ProblemSection />

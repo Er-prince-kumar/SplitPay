@@ -106,22 +106,30 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }
   }, [currentUser]);
 
-  // Sync external data applied from SplitPay AI
+  // Sync external data applied from SplitPay AI or User Dashboard
   useEffect(() => {
     if (externalTripData) {
       if (externalTripData.tripName) setTripName(externalTripData.tripName);
       if (externalTripData.totalAmount) setTotalAmount(externalTripData.totalAmount);
+      if (externalTripData.hostName) setHostName(externalTripData.hostName);
+      if (externalTripData.hostUpi) setHostUpi(externalTripData.hostUpi);
+      
       if (externalTripData.members && externalTripData.members.length > 0) {
-        const avatars = ['👑', '👨‍💻', '👩‍🎨', '🎒', '🕶️', '⚡', '🚀', '🏄'];
-        const formatted = externalTripData.members.map((name, i) => ({
-          id: Date.now() + i,
-          name: typeof name === 'string' ? name : name.name,
-          phone: (typeof name === 'object' && name.phone) ? name.phone : '9876543210',
-          isHost: i === 0,
-          status: i === 0 ? 'paid' : 'pending',
-          avatar: avatars[i % avatars.length]
-        }));
-        setMembers(formatted);
+        // If members already have full structure (id, name, status, etc.)
+        if (typeof externalTripData.members[0] === 'object' && externalTripData.members[0].status) {
+          setMembers(externalTripData.members);
+        } else {
+          const avatars = ['👑', '👨‍💻', '👩‍🎨', '🎒', '🕶️', '⚡', '🚀', '🏄'];
+          const formatted = externalTripData.members.map((name, i) => ({
+            id: Date.now() + i,
+            name: typeof name === 'string' ? name : name.name,
+            phone: (typeof name === 'object' && name.phone) ? name.phone : '9876543210',
+            isHost: i === 0,
+            status: i === 0 ? 'paid' : 'pending',
+            avatar: avatars[i % avatars.length]
+          }));
+          setMembers(formatted);
+        }
       }
     }
   }, [externalTripData]);
