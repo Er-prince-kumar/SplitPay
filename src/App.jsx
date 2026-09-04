@@ -104,6 +104,10 @@ function App() {
             externalTripData={appliedAITripData}
           />
 
+          {/* How It Works & Value Proposition */}
+          <HowItWorks3D />
+          <ProblemSection />
+
           {/* Core Features & Security */}
           <FeaturesGrid />
           <TrustRazorpay />

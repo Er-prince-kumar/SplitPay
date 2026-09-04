@@ -90,7 +90,12 @@ const Hero3D = ({ onOpenWaitlist }) => {
 
             <a
               href="#how-it-works"
-              onClick={() => sound.playClick()}
+              onClick={(e) => {
+                e.preventDefault();
+                sound.playClick();
+                const el = document.getElementById('how-it-works');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
               className="px-5 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10 font-medium text-sm sm:text-base transition-colors flex items-center gap-2 cursor-pointer"
             >
               <Play className="w-3.5 h-3.5 fill-current text-[#C6FF3D]" />

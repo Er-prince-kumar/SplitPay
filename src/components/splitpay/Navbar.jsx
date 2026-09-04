@@ -18,6 +18,16 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
     setMobileMenuOpen(false);
   };
 
+  const scrollToSection = (e, id) => {
+    if (e && e.preventDefault) e.preventDefault();
+    sound.playClick();
+    closeMobileMenu();
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
     <header className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
       scrolled || mobileMenuOpen
@@ -33,6 +43,7 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
           onClick={() => {
             sound.playClick();
             closeMobileMenu();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         >
           <div className="w-9 h-9 rounded-xl bg-[#1B1B3A] border border-[#C6FF3D]/40 flex items-center justify-center group-hover:border-[#C6FF3D] transition-colors shadow-sm">
@@ -47,16 +58,16 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
         <nav className="hidden md:flex items-center gap-7 text-sm text-white/70">
           <a 
             href="#trip-splitter" 
-            className="text-[#C6FF3D] hover:text-[#b5f422] transition-colors font-semibold flex items-center gap-1.5"
-            onClick={() => sound.playClick()}
+            className="text-[#C6FF3D] hover:text-[#b5f422] transition-colors font-semibold flex items-center gap-1.5 cursor-pointer"
+            onClick={(e) => scrollToSection(e, 'trip-splitter')}
           >
             <PlusCircle className="w-4 h-4" />
             <span>Split a Bill</span>
           </a>
           <a 
             href="#create-split" 
-            className="hover:text-white transition-colors"
-            onClick={() => sound.playClick()}
+            className="hover:text-white transition-colors cursor-pointer"
+            onClick={(e) => scrollToSection(e, 'create-split')}
           >
             Create Split
           </a>
@@ -64,7 +75,7 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
             <a 
               href="#user-dashboard" 
               className="px-2.5 py-1 rounded-lg bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/30 font-bold hover:bg-[#C6FF3D]/20 transition-colors flex items-center gap-1.5 cursor-pointer text-xs"
-              onClick={() => sound.playClick()}
+              onClick={(e) => scrollToSection(e, 'user-dashboard')}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-ping" />
               <span>My Trips</span>
@@ -82,30 +93,30 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
             <span>AI Assistant</span>
           </button>
           <a 
-            href="#problem" 
-            className="hover:text-white transition-colors"
-            onClick={() => sound.playClick()}
-          >
-            Why
-          </a>
-          <a 
             href="#how-it-works" 
-            className="hover:text-white transition-colors"
-            onClick={() => sound.playClick()}
+            className="hover:text-white transition-colors cursor-pointer"
+            onClick={(e) => scrollToSection(e, 'how-it-works')}
           >
             How it works
           </a>
           <a 
+            href="#problem" 
+            className="hover:text-white transition-colors cursor-pointer"
+            onClick={(e) => scrollToSection(e, 'problem')}
+          >
+            Why
+          </a>
+          <a 
             href="#features" 
-            className="hover:text-white transition-colors"
-            onClick={() => sound.playClick()}
+            className="hover:text-white transition-colors cursor-pointer"
+            onClick={(e) => scrollToSection(e, 'features')}
           >
             Features
           </a>
           <a 
             href="#trust" 
-            className="hover:text-white transition-colors"
-            onClick={() => sound.playClick()}
+            className="hover:text-white transition-colors cursor-pointer"
+            onClick={(e) => scrollToSection(e, 'trust')}
           >
             Security
           </a>
@@ -239,45 +250,33 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
             </button>
 
             <a 
-              href="#problem" 
-              className="p-2 text-white/70 hover:text-white"
-              onClick={() => {
-                sound.playClick();
-                closeMobileMenu();
-              }}
-            >
-              The Problem
-            </a>
-
-            <a 
               href="#how-it-works" 
-              className="p-2 text-white/70 hover:text-white"
-              onClick={() => {
-                sound.playClick();
-                closeMobileMenu();
-              }}
+              className="p-2 text-white/70 hover:text-white cursor-pointer"
+              onClick={(e) => scrollToSection(e, 'how-it-works')}
             >
               How It Works
             </a>
 
             <a 
+              href="#problem" 
+              className="p-2 text-white/70 hover:text-white cursor-pointer"
+              onClick={(e) => scrollToSection(e, 'problem')}
+            >
+              The Problem &amp; Why SplitPay
+            </a>
+
+            <a 
               href="#features" 
-              className="p-2 text-white/70 hover:text-white"
-              onClick={() => {
-                sound.playClick();
-                closeMobileMenu();
-              }}
+              className="p-2 text-white/70 hover:text-white cursor-pointer"
+              onClick={(e) => scrollToSection(e, 'features')}
             >
               Features
             </a>
 
             <a 
               href="#trust" 
-              className="p-2 text-white/70 hover:text-white"
-              onClick={() => {
-                sound.playClick();
-                closeMobileMenu();
-              }}
+              className="p-2 text-white/70 hover:text-white cursor-pointer"
+              onClick={(e) => scrollToSection(e, 'trust')}
             >
               Security &amp; Razorpay
             </a>
