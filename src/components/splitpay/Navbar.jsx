@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowRight, User, LogOut, PlusCircle, Sparkles, Menu, X } from 'lucide-react';
+import { ArrowRight, User, LogOut, PlusCircle, Sparkles, Menu, X, Camera } from 'lucide-react';
 import { sound } from '../../utils/audio';
 
 const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentUser, onSignOut, onOpenProfile, onOpenHowItWorks }) => {
@@ -73,6 +73,14 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-ping" />
                 <span>My Trips</span>
+              </a>
+              <a 
+                href="#receipt-ocr" 
+                className="hover:text-white transition-colors cursor-pointer text-sm font-medium flex items-center gap-1.5"
+                onClick={(e) => scrollToSection(e, 'receipt-ocr')}
+              >
+                <Camera className="w-3.5 h-3.5 text-[#0082FB]" />
+                <span>Receipt OCR</span>
               </a>
               <button 
                 type="button"
@@ -254,6 +262,18 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
                 >
                   <span className="w-2 h-2 rounded-full bg-[#0082FB] animate-ping" />
                   <span>My Trips & Dashboard</span>
+                </a>
+
+                <a 
+                  href="#receipt-ocr" 
+                  className="p-2.5 rounded-xl bg-[#0082FB]/15 text-[#0082FB] border border-[#0082FB]/30 font-bold flex items-center gap-2"
+                  onClick={(e) => {
+                    closeMobileMenu();
+                    scrollToSection(e, 'receipt-ocr');
+                  }}
+                >
+                  <Camera className="w-4 h-4 text-[#0082FB]" />
+                  <span>Receipt OCR &bull; Itemized Split</span>
                 </a>
 
                 <button

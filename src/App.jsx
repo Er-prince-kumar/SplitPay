@@ -14,6 +14,7 @@ import AIChatDrawer from './components/splitpay/AIChatDrawer';
 import UserDashboard from './components/splitpay/UserDashboard';
 import ProfileModal from './components/splitpay/ProfileModal';
 import HowItWorksModal from './components/splitpay/HowItWorksModal';
+import ReceiptOcrSection from './components/splitpay/ReceiptOcrSection';
 import { sound } from './utils/audio';
 
 function App() {
@@ -105,6 +106,12 @@ function App() {
             currentUser={currentUser} 
             onOpenAuth={() => setIsAuthOpen(true)}
             externalTripData={appliedAITripData}
+          />
+
+          {/* Smart Receipt OCR & Auto-Itemized Split */}
+          <ReceiptOcrSection 
+            currentUser={currentUser}
+            onApplyToSplitter={handleApplyAITrip}
           />
 
           {/* How It Works & Value Proposition */}
