@@ -212,6 +212,23 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       ref: refId
     });
 
+    // Record real payment to splitpay_payment_activity for UserDashboard live log
+    try {
+      const storedAct = localStorage.getItem('splitpay_payment_activity');
+      const actList = storedAct ? JSON.parse(storedAct) : [];
+      actList.unshift({
+        id: 'act-' + Date.now(),
+        payerName: memberToPay.name,
+        amount: perPersonShare,
+        tripName: tripName,
+        ref: refId,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'Verified'
+      });
+      localStorage.setItem('splitpay_payment_activity', JSON.stringify(actList.slice(0, 10)));
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {}
+
     setTimeout(() => {
       setPaymentToast(null);
     }, 4500);

@@ -33,6 +33,32 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
   const [newTripAmount, setNewTripAmount] = useState('');
   const [newTripFriends, setNewTripFriends] = useState('');
 
+  // Live campus payment activities state (empty by default until real payments occur)
+  const [activities, setActivities] = useState(() => {
+    try {
+      const saved = localStorage.getItem('splitpay_payment_activity');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const saved = localStorage.getItem('splitpay_payment_activity');
+        setActivities(saved ? JSON.parse(saved) : []);
+      } catch (e) {}
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  const handleClearActivities = () => {
+    sound.playClick();
+    localStorage.removeItem('splitpay_payment_activity');
+    setActivities([]);
+  };
+
   // Storage key specific to current user
   const storageKey = `splitpay_trips_${currentUser?.email || 'guest'}`;
 
@@ -598,36 +624,51 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
                 Recent Campus Payment Activity
               </h3>
             </div>
-            <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
-              UPI Real-Time Log
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono">
-            <div className="p-3 rounded-xl bg-[#0B0C16] border border-white/5 flex items-center justify-between">
-              <div>
-                <div className="text-white font-bold">Vicky R. paid ₹3,300</div>
-                <div className="text-[10px] text-white/40">Manali Snow Trek • UPI Ref #629104</div>
-              </div>
-              <span className="text-[#25D366] font-bold">✓ Verified</span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-[#0B0C16] border border-white/5 flex items-center justify-between">
-              <div>
-                <div className="text-white font-bold">Neha T. paid ₹3,300</div>
-                <div className="text-[10px] text-white/40">Manali Snow Trek • UPI Ref #839201</div>
-              </div>
-              <span className="text-[#25D366] font-bold">✓ Verified</span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-[#0B0C16] border border-white/5 flex items-center justify-between">
-              <div>
-                <div className="text-white font-bold">Biryani Split Completed</div>
-                <div className="text-[10px] text-white/40">4 Friends • ₹1,600 Total Settled</div>
-              </div>
-              <span className="text-[#C6FF3D] font-bold">✓ Closed</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
+                UPI Real-Time Log
+              </span>
+              {activities.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearActivities}
+                  className="text-[10px] font-mono text-white/40 hover:text-red-400 transition-colors cursor-pointer"
+                >
+                  Clear Log
+                </button>
+              )}
             </div>
           </div>
+
+          {activities.length === 0 ? (
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#0B0C16]/50 border border-white/5 border-dashed flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 shrink-0">
+                  <Clock className="w-4 h-4 text-[#C6FF3D]" />
+                </div>
+                <div>
+                  <div className="text-white/80 font-medium text-xs font-mono">
+                    No recent payment activity recorded yet
+                  </div>
+                  <div className="text-[11px] text-white/40 font-mono">
+                    When squad members pay UPI splits, verified live payment transactions will appear here automatically.
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono">
+              {activities.map((act) => (
+                <div key={act.id} className="p-3 rounded-xl bg-[#0B0C16] border border-white/5 flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-bold">{act.payerName} paid ₹{act.amount?.toLocaleString('en-IN')}</div>
+                    <div className="text-[10px] text-white/40">{act.tripName} • UPI Ref #{act.ref}</div>
+                  </div>
+                  <span className="text-[#25D366] font-bold">✓ {act.status || 'Verified'}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
