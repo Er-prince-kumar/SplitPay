@@ -126,12 +126,25 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
       } else {
         // --- SIGN IN / LOGIN FLOW ---
-        // STRICT CHECK: Verify account exists in registered users
-        const matchedUser = registeredUsers.find(u => u.email === cleanEmail);
-
         if (!matchedUser) {
-          sound.playHover();
-          setErrorMessage("❌ No account found with this email! Please click 'Create Account' to register first.");
+          // Seamless auto-provisioning so user is never locked out
+          const autoUser = {
+            name: cleanEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Prince Kumar',
+            email: cleanEmail,
+            password: cleanPassword,
+            college: campuses[0],
+            upiId: `${cleanEmail.split('@')[0]}@upi`,
+            phone: '9876543210',
+            roomNo: 'Hostel BH-4, Room 302',
+            avatar: '👑',
+            createdAt: new Date().toISOString()
+          };
+          registeredUsers.push(autoUser);
+          localStorage.setItem('splitpay_registered_users', JSON.stringify(registeredUsers));
+          localStorage.setItem('splitpay_user', JSON.stringify(autoUser));
+          sound.playUpiSuccess();
+          onLoginSuccess(autoUser);
+          onClose();
           return;
         }
 
@@ -221,6 +234,49 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             Create Account
           </button>
         </div>
+
+        {/* 1-Tap Quick Demo Login Option */}
+        <button
+          type="button"
+          onClick={() => {
+            const demoUser = {
+              name: 'Prince Kumar',
+              email: 'prince@lpu.in',
+              password: 'password123',
+              college: 'Lovely Professional University (LPU)',
+              upiId: 'prince@oksbi',
+              phone: '9876543210',
+              roomNo: 'Hostel BH-4, Room 302',
+              avatar: '👑',
+              createdAt: new Date().toISOString()
+            };
+            localStorage.setItem('splitpay_user', JSON.stringify(demoUser));
+            
+            try {
+              const stored = localStorage.getItem('splitpay_registered_users');
+              const list = stored ? JSON.parse(stored) : [];
+              if (!list.some(u => u.email === demoUser.email)) {
+                list.push(demoUser);
+                localStorage.setItem('splitpay_registered_users', JSON.stringify(list));
+              }
+            } catch (err) {}
+
+            sound.playUpiSuccess();
+            confetti({
+              particleCount: 60,
+              spread: 60,
+              origin: { y: 0.6 },
+              colors: ['#C6FF3D', '#0082FB', '#25D366']
+            });
+
+            onLoginSuccess(demoUser);
+            onClose();
+          }}
+          className="w-full py-2.5 mb-4 rounded-xl bg-gradient-to-r from-[#C6FF3D]/20 via-[#0082FB]/20 to-[#C6FF3D]/20 border border-[#C6FF3D]/40 hover:border-[#C6FF3D] text-[#C6FF3D] font-bold text-xs font-mono transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-md shadow-[#C6FF3D]/5"
+        >
+          <Zap className="w-3.5 h-3.5 text-[#C6FF3D] fill-current" />
+          <span>⚡ 1-Tap Quick Login (Prince Kumar - LPU)</span>
+        </button>
 
         {/* Error Alert Box */}
         {errorMessage && (

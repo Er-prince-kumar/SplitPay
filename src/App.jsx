@@ -12,11 +12,13 @@ import Footer from './components/splitpay/Footer';
 import AuthModal from './components/splitpay/AuthModal';
 import AIChatDrawer from './components/splitpay/AIChatDrawer';
 import UserDashboard from './components/splitpay/UserDashboard';
+import ProfileModal from './components/splitpay/ProfileModal';
 import { sound } from './utils/audio';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [appliedAITripData, setAppliedAITripData] = useState(null);
 
@@ -24,31 +26,20 @@ function App() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem('splitpay_user');
-      const registeredRaw = localStorage.getItem('splitpay_registered_users');
-      const registeredList = registeredRaw ? JSON.parse(registeredRaw) : [];
-
       if (stored) {
         const user = JSON.parse(stored);
-        const exists = registeredList.some(u => u.email === user.email);
-        if (exists) {
+        if (user && user.email) {
           setCurrentUser(user);
-        } else {
-          localStorage.removeItem('splitpay_user');
-          setCurrentUser(null);
         }
       }
     } catch (e) {
       console.error(e);
-      setCurrentUser(null);
     }
   }, []);
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
-    setTimeout(() => {
-      const el = document.getElementById('user-dashboard');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }, 350);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSignOut = () => {
@@ -93,44 +84,49 @@ function App() {
         onOpenAIChat={() => setIsAIChatOpen(true)}
         currentUser={currentUser}
         onSignOut={handleSignOut}
+        onOpenProfile={() => setIsProfileOpen(true)}
       />
 
-      {/* Clean, Fast Hero Section with Interactive Preview */}
-      <Hero3D 
-        onOpenWaitlist={scrollToWaitlist} 
-        onOpenDemo={scrollToSplitter}
-      />
+      {/* Logged-In User Experience: User Dashboard is Top Hero! */}
+      {currentUser ? (
+        <div className="pt-20 space-y-4">
+          <UserDashboard 
+            currentUser={currentUser}
+            onSelectTrip={handleSelectTrip}
+            onOpenAIChat={() => setIsAIChatOpen(true)}
+            onOpenProfile={() => setIsProfileOpen(true)}
+          />
 
-      {/* Personalized User Dashboard with My Trips Hub for Logged In User */}
-      {currentUser && (
-        <UserDashboard 
-          currentUser={currentUser}
-          onSelectTrip={handleSelectTrip}
-          onOpenAIChat={() => setIsAIChatOpen(true)}
-        />
+          {/* Active Trip Bill Splitter */}
+          <TripSplitterSection 
+            currentUser={currentUser} 
+            onOpenAuth={() => setIsAuthOpen(true)}
+            externalTripData={appliedAITripData}
+          />
+
+          {/* Core Features & Security */}
+          <FeaturesGrid />
+          <TrustRazorpay />
+        </div>
+      ) : (
+        /* Public Visitor Experience: Marketing Landing Page */
+        <>
+          <Hero3D 
+            onOpenWaitlist={scrollToWaitlist} 
+            onOpenDemo={scrollToSplitter}
+          />
+          <ProblemSection />
+          <HowItWorks3D />
+          <TripSplitterSection 
+            currentUser={currentUser} 
+            onOpenAuth={() => setIsAuthOpen(true)}
+            externalTripData={appliedAITripData}
+          />
+          <FeaturesGrid />
+          <TrustRazorpay />
+          <WaitlistSection />
+        </>
       )}
-
-      {/* The 3 Campus Problems */}
-      <ProblemSection />
-
-      {/* How SplitPay Works (3 Steps) */}
-      <HowItWorks3D />
-
-      {/* Dedicated Trip Bill Creator & Member Splitter Section */}
-      <TripSplitterSection 
-        currentUser={currentUser} 
-        onOpenAuth={() => setIsAuthOpen(true)}
-        externalTripData={appliedAITripData}
-      />
-
-      {/* Clean Feature Grid */}
-      <FeaturesGrid />
-
-      {/* Powered by Razorpay Security Vault */}
-      <TrustRazorpay />
-
-      {/* Campus VIP Early Access Waitlist */}
-      <WaitlistSection />
 
       {/* Footer */}
       <Footer />
@@ -140,6 +136,14 @@ function App() {
         isOpen={isAuthOpen} 
         onClose={() => setIsAuthOpen(false)}
         onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* User Profile & Details Completion Modal */}
+      <ProfileModal 
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        currentUser={currentUser}
+        onUpdateProfile={(updated) => setCurrentUser(updated)}
       />
 
       {/* SplitPay AI Chatbot Drawer */}

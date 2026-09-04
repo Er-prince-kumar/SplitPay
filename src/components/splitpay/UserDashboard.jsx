@@ -17,12 +17,13 @@ import {
   QrCode,
   Zap,
   Calendar,
-  X
+  X,
+  User
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';
 
-const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat }) => {
+const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile }) => {
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'active' | 'settled'
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -134,6 +135,15 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat }) => {
   const totalMembersCount = trips.reduce((acc, t) => acc + t.members.length, 0);
   const totalPaidMembers = trips.reduce((acc, t) => acc + t.members.filter(m => m.status === 'paid').length, 0);
   const overallSettlementRate = totalMembersCount > 0 ? Math.round((totalPaidMembers / totalMembersCount) * 100) : 0;
+
+  // Calculate profile completion percentage
+  let completionScore = 0;
+  if (currentUser?.name) completionScore += 20;
+  if (currentUser?.email) completionScore += 20;
+  if (currentUser?.phone) completionScore += 20;
+  if (currentUser?.upiId) completionScore += 20;
+  if (currentUser?.college) completionScore += 10;
+  if (currentUser?.roomNo) completionScore += 10;
 
   const handleCopyUpi = () => {
     sound.playClick();
@@ -286,7 +296,18 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat }) => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            <button
+              onClick={() => {
+                sound.playClick();
+                if (onOpenProfile) onOpenProfile();
+              }}
+              className="px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium text-xs sm:text-sm border border-white/15 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              <User className="w-4 h-4 text-[#C6FF3D]" />
+              <span>Profile ({completionScore}%)</span>
+            </button>
+
             <button
               onClick={() => {
                 sound.playClick();
@@ -303,14 +324,36 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat }) => {
                 sound.playClick();
                 if (onOpenAIChat) onOpenAIChat();
               }}
-              className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium text-xs sm:text-sm border border-white/15 transition-colors flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium text-xs sm:text-sm border border-white/15 transition-colors flex items-center gap-2 cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-[#C6FF3D]" />
-              <span>AI Bill Auto-Fill</span>
+              <span>AI Auto-Fill</span>
             </button>
           </div>
 
         </div>
+
+        {/* Profile Completion Alert Banner (if incomplete) */}
+        {completionScore < 100 && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#14152A] to-amber-500/10 border border-amber-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+            <div className="flex items-center gap-2.5 text-amber-300">
+              <span className="text-base">⚡</span>
+              <div>
+                <strong>Profile is {completionScore}% complete:</strong> Add your Phone Number & Room details to enable automatic WhatsApp split reminders!
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                if (onOpenProfile) onOpenProfile();
+              }}
+              className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-[#0B0C16] font-bold text-xs shrink-0 self-start sm:self-auto cursor-pointer transition-colors shadow-sm"
+            >
+              Complete Details →
+            </button>
+          </div>
+        )}
 
         {/* Financial KPI Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">

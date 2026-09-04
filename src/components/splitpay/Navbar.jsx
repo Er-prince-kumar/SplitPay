@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowRight, User, LogOut, PlusCircle, Sparkles, Menu, X } from 'lucide-react';
 import { sound } from '../../utils/audio';
 
-const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentUser, onSignOut }) => {
+const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentUser, onSignOut, onOpenProfile }) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -114,15 +114,26 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
         {/* Right Actions: Auth, Waitlist, and Mobile Menu Hamburger */}
         <div className="flex items-center gap-2.5 sm:gap-3">
           {currentUser ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#14152A] border border-white/10 text-xs">
-              <span className="text-base">{currentUser.avatar || '👑'}</span>
-              <span className="text-white font-medium max-w-[90px] sm:max-w-[120px] truncate">{currentUser.name}</span>
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#14152A] border border-white/10 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenProfile) onOpenProfile();
+                }}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left"
+                title="View & Edit Profile Details"
+              >
+                <span className="text-base">{currentUser.avatar || '👑'}</span>
+                <span className="text-white font-medium max-w-[80px] sm:max-w-[110px] truncate">{currentUser.name}</span>
+                <User className="w-3 h-3 text-[#C6FF3D]" />
+              </button>
               <button
                 onClick={() => {
                   sound.playClick();
                   onSignOut();
                 }}
-                className="p-1 text-white/40 hover:text-red-400 transition-colors ml-1 cursor-pointer"
+                className="p-1 text-white/40 hover:text-red-400 transition-colors cursor-pointer"
                 title="Sign out"
               >
                 <LogOut className="w-3.5 h-3.5" />
@@ -186,17 +197,32 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
             </a>
 
             {currentUser && (
-              <a 
-                href="#user-dashboard" 
-                className="p-2.5 rounded-xl bg-[#0082FB]/15 text-[#0082FB] border border-[#0082FB]/30 font-bold flex items-center gap-2"
-                onClick={() => {
-                  sound.playClick();
-                  closeMobileMenu();
-                }}
-              >
-                <span className="w-2 h-2 rounded-full bg-[#0082FB] animate-ping" />
-                <span>My Trips & Dashboard</span>
-              </a>
+              <>
+                <a 
+                  href="#user-dashboard" 
+                  className="p-2.5 rounded-xl bg-[#0082FB]/15 text-[#0082FB] border border-[#0082FB]/30 font-bold flex items-center gap-2"
+                  onClick={() => {
+                    sound.playClick();
+                    closeMobileMenu();
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full bg-[#0082FB] animate-ping" />
+                  <span>My Trips & Dashboard</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    closeMobileMenu();
+                    if (onOpenProfile) onOpenProfile();
+                  }}
+                  className="p-2.5 rounded-xl bg-[#C6FF3D]/15 text-[#C6FF3D] border border-[#C6FF3D]/30 font-bold flex items-center gap-2 text-left"
+                >
+                  <User className="w-4 h-4" />
+                  <span>Edit Profile Details</span>
+                </button>
+              </>
             )}
 
             <button 
