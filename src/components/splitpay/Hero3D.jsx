@@ -12,7 +12,7 @@ import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';
 import { buildSplitWhatsAppMessage, openWhatsAppDirect } from '../../utils/whatsapp';
 
-const Hero3D = ({ onOpenWaitlist }) => {
+const Hero3D = ({ onOpenWaitlist, onOpenDemo, onOpenHowItWorks }) => {
   const presets = [
     { title: 'Goa Trip — Room 204', amount: 7400, icon: '🏖️' },
     { title: 'Manali Snow Ride', amount: 9600, icon: '🏔️' },
@@ -88,19 +88,22 @@ const Hero3D = ({ onOpenWaitlist }) => {
               <ArrowRight className="w-4 h-4" />
             </button>
 
-            <a
-              href="#how-it-works"
-              onClick={(e) => {
-                e.preventDefault();
+            <button
+              type="button"
+              onClick={() => {
                 sound.playClick();
-                const el = document.getElementById('how-it-works');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (onOpenHowItWorks) {
+                  onOpenHowItWorks();
+                } else {
+                  const el = document.getElementById('how-it-works');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
               }}
               className="px-5 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10 font-medium text-sm sm:text-base transition-colors flex items-center gap-2 cursor-pointer"
             >
               <Play className="w-3.5 h-3.5 fill-current text-[#C6FF3D]" />
               <span>How it works</span>
-            </a>
+            </button>
           </div>
 
           {/* Simple Trust Bullets */}

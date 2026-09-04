@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowRight, User, LogOut, PlusCircle, Sparkles, Menu, X } from 'lucide-react';
 import { sound } from '../../utils/audio';
 
-const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentUser, onSignOut, onOpenProfile }) => {
+const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentUser, onSignOut, onOpenProfile, onOpenHowItWorks }) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -92,13 +92,22 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
             <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-pulse" />
             <span>AI Assistant</span>
           </button>
-          <a 
-            href="#how-it-works" 
-            className="hover:text-white transition-colors cursor-pointer"
-            onClick={(e) => scrollToSection(e, 'how-it-works')}
+          <button 
+            type="button"
+            className="hover:text-white transition-colors cursor-pointer text-sm font-medium"
+            onClick={() => {
+              sound.playClick();
+              closeMobileMenu();
+              if (onOpenHowItWorks) {
+                onOpenHowItWorks();
+              } else {
+                const el = document.getElementById('how-it-works');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
           >
             How it works
-          </a>
+          </button>
           <a 
             href="#problem" 
             className="hover:text-white transition-colors cursor-pointer"
@@ -249,13 +258,23 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
               <span>SplitPay AI Assistant</span>
             </button>
 
-            <a 
-              href="#how-it-works" 
-              className="p-2 text-white/70 hover:text-white cursor-pointer"
-              onClick={(e) => scrollToSection(e, 'how-it-works')}
+            <button 
+              type="button"
+              className="p-2 text-white/70 hover:text-white cursor-pointer text-left flex items-center justify-between"
+              onClick={() => {
+                sound.playClick();
+                closeMobileMenu();
+                if (onOpenHowItWorks) {
+                  onOpenHowItWorks();
+                } else {
+                  const el = document.getElementById('how-it-works');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
             >
-              How It Works
-            </a>
+              <span>How It Works</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/30">Demo</span>
+            </button>
 
             <a 
               href="#problem" 

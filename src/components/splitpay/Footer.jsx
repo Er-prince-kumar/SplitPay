@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShieldCheck } from 'lucide-react';
 
-const Footer = () => {
+const Footer = ({ onOpenHowItWorks }) => {
   return (
     <footer className="bg-[#080912] text-white py-12 px-3 sm:px-5 md:px-6 lg:px-8 border-t border-white/10 w-full">
       <div className="w-full max-w-[1600px] mx-auto space-y-10">
@@ -44,9 +44,20 @@ const Footer = () => {
                 </a>
               </li>
               <li>
-                <a href="#how-it-works" className="hover:text-[#C6FF3D] transition-colors">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (onOpenHowItWorks) {
+                      onOpenHowItWorks();
+                    } else {
+                      const el = document.getElementById('how-it-works');
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                  className="hover:text-[#C6FF3D] transition-colors cursor-pointer text-left"
+                >
                   How It Works
-                </a>
+                </button>
               </li>
               <li>
                 <a href="#features" className="hover:text-[#C6FF3D] transition-colors">

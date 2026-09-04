@@ -13,6 +13,7 @@ import AuthModal from './components/splitpay/AuthModal';
 import AIChatDrawer from './components/splitpay/AIChatDrawer';
 import UserDashboard from './components/splitpay/UserDashboard';
 import ProfileModal from './components/splitpay/ProfileModal';
+import HowItWorksModal from './components/splitpay/HowItWorksModal';
 import { sound } from './utils/audio';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const [appliedAITripData, setAppliedAITripData] = useState(null);
 
   // Load persisted user session on mount
@@ -85,6 +87,7 @@ function App() {
         currentUser={currentUser}
         onSignOut={handleSignOut}
         onOpenProfile={() => setIsProfileOpen(true)}
+        onOpenHowItWorks={() => setIsHowItWorksOpen(true)}
       />
 
       {/* Logged-In User Experience: User Dashboard is Top Hero! */}
@@ -118,6 +121,7 @@ function App() {
           <Hero3D 
             onOpenWaitlist={scrollToWaitlist} 
             onOpenDemo={scrollToSplitter}
+            onOpenHowItWorks={() => setIsHowItWorksOpen(true)}
           />
           <ProblemSection />
           <HowItWorks3D />
@@ -133,7 +137,14 @@ function App() {
       )}
 
       {/* Footer */}
-      <Footer />
+      <Footer onOpenHowItWorks={() => setIsHowItWorksOpen(true)} />
+
+      {/* Interactive How It Works Walkthrough Modal */}
+      <HowItWorksModal 
+        isOpen={isHowItWorksOpen}
+        onClose={() => setIsHowItWorksOpen(false)}
+        onOpenSplitter={scrollToSplitter}
+      />
 
       {/* Authentication Modal */}
       <AuthModal 
