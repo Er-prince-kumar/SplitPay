@@ -27,8 +27,19 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   // Helper to load initial saved trip from localStorage
   const getInitialTrip = () => {
     try {
-      const saved = localStorage.getItem('splitpay_active_trip');
+      const saved = localStorage.getItem('splitpay_active_trip_v2');
       if (saved) return JSON.parse(saved);
+
+      // Clean migration from old storage: ensure friends start as pending unless confirmed
+      const oldSaved = localStorage.getItem('splitpay_active_trip');
+      if (oldSaved) {
+        const parsed = JSON.parse(oldSaved);
+        if (parsed && Array.isArray(parsed.members)) {
+          parsed.members = parsed.members.map(m => m.isHost ? m : { ...m, status: 'pending' });
+          localStorage.setItem('splitpay_active_trip_v2', JSON.stringify(parsed));
+          return parsed;
+        }
+      }
     } catch (e) {
       console.warn("Could not parse saved trip from localStorage", e);
     }
@@ -59,7 +70,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   const defaultMembers = [
     { id: 1, name: currentUser?.name || 'Prince Kumar', phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
-    { id: 2, name: 'Rohit K.', phone: '9876512345', isHost: false, status: 'paid', avatar: '👨‍💻' },
+    { id: 2, name: 'Rohit K.', phone: '9876512345', isHost: false, status: 'pending', avatar: '👨‍💻' },
     { id: 3, name: 'Priya S.', phone: '9811223344', isHost: false, status: 'pending', avatar: '👩‍🎨' },
     { id: 4, name: 'Aman M.', phone: '9899887766', isHost: false, status: 'pending', avatar: '🎒' }
   ];
@@ -79,6 +90,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
         members,
         updatedAt: new Date().toISOString()
       };
+      localStorage.setItem('splitpay_active_trip_v2', JSON.stringify(payload));
       localStorage.setItem('splitpay_active_trip', JSON.stringify(payload));
     } catch (e) {
       console.warn("Could not save trip to localStorage", e);
@@ -229,15 +241,16 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   const handleResetBill = () => {
     sound.playClick();
-    if (window.confirm("Reset this bill to default template? This will clear saved changes for this bill.")) {
+    if (window.confirm("Reset this bill to default template? This will reset all member payments to pending.")) {
       setTripName('Goa Beach Shack & Cabs');
       setTotalAmount(7400);
       setMembers([
         { id: 1, name: hostName, phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
-        { id: 2, name: 'Rohit K.', phone: '9876512345', isHost: false, status: 'paid', avatar: '👨‍💻' },
+        { id: 2, name: 'Rohit K.', phone: '9876512345', isHost: false, status: 'pending', avatar: '👨‍💻' },
         { id: 3, name: 'Priya S.', phone: '9811223344', isHost: false, status: 'pending', avatar: '👩‍🎨' },
         { id: 4, name: 'Aman M.', phone: '9899887766', isHost: false, status: 'pending', avatar: '🎒' }
       ]);
+      localStorage.removeItem('splitpay_active_trip_v2');
       localStorage.removeItem('splitpay_active_trip');
       sound.playUpiSuccess();
     }
@@ -404,23 +417,25 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => handleSendWhatsApp(member)}
-                        className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30 transition-colors cursor-pointer flex items-center gap-1"
-                        title={`Send WhatsApp payment request to ${member.name}`}
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">WhatsApp</span>
-                      </button>
+                      {!member.isHost && (
+                        <button
+                          type="button"
+                          onClick={() => handleSendWhatsApp(member)}
+                          className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30 transition-colors cursor-pointer flex items-center gap-1"
+                          title={`Send WhatsApp payment request to ${member.name}`}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">WhatsApp</span>
+                        </button>
+                      )}
 
                       {member.status === 'paid' ? (
                         <span
                           className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-[#C6FF3D]/15 text-[#C6FF3D] border border-[#C6FF3D]/30 select-none cursor-default shadow-sm"
-                          title="Payment verified"
+                          title={member.isHost ? "Trip Organizer (Paid total bill upfront)" : "Payment verified"}
                         >
                           <CheckCircle2 className="w-3 h-3" />
-                          <span>Paid</span>
+                          <span>{member.isHost ? "Paid (Host)" : "Paid"}</span>
                         </span>
                       ) : (
                         <span

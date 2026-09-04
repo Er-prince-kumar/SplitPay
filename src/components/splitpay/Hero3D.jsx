@@ -23,8 +23,8 @@ const Hero3D = ({ onOpenWaitlist }) => {
   const currentPreset = presets[activePresetIndex];
 
   const [squad, setSquad] = useState([
-    { id: 1, name: 'Rohit K.', role: 'Cabs & Fuel', status: 'paid', avatar: '👨‍💻' },
-    { id: 2, name: 'Priya S.', role: 'Beach Shack', status: 'paid', avatar: '👩‍🎨' },
+    { id: 1, name: 'Rohit K.', role: 'Cabs & Fuel', status: 'pending', avatar: '👨‍💻' },
+    { id: 2, name: 'Priya S.', role: 'Beach Shack', status: 'pending', avatar: '👩‍🎨' },
     { id: 3, name: 'Aman M.', role: 'Hostel Stay', status: 'pending', avatar: '🎒' },
     { id: 4, name: 'You (Host)', role: 'Trip Organizer', status: 'paid', avatar: '👑' },
   ]);
