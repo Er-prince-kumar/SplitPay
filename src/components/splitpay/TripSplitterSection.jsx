@@ -13,7 +13,8 @@ import {
   Phone, 
   X, 
   ExternalLink,
-  Zap
+  Zap,
+  RotateCcw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';
@@ -212,6 +213,17 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }, 1800);
   };
 
+  const handleResetMemberStatus = (memberId) => {
+    sound.playClick();
+    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'pending' } : m));
+  };
+
+  const handleResetAllToPending = () => {
+    sound.playClick();
+    setMembers(prev => prev.map(m => ({ ...m, status: 'pending' })));
+    sound.playUpiSuccess();
+  };
+
   const handleSendWhatsApp = (member) => {
     sound.playClick();
     const message = buildSplitWhatsAppMessage({
@@ -375,6 +387,18 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
                 <div className="flex items-center gap-2">
                   <span className="text-[#C6FF3D] font-bold">₹{perPersonShare.toLocaleString('en-IN')} / person</span>
+                  
+                  {members.some(m => m.status === 'paid') && (
+                    <button
+                      type="button"
+                      onClick={handleResetAllToPending}
+                      className="px-2 py-0.5 rounded-lg text-[10px] font-mono text-white/50 hover:text-amber-400 hover:bg-amber-400/10 border border-white/10 hover:border-amber-400/30 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                      title="Reset all member payments to Pending"
+                    >
+                      <RotateCcw className="w-2.5 h-2.5" />
+                      <span>Reset All</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -430,13 +454,25 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                       )}
 
                       {member.status === 'paid' ? (
-                        <span
-                          className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-[#C6FF3D]/15 text-[#C6FF3D] border border-[#C6FF3D]/30 select-none cursor-default shadow-sm"
-                          title={member.isHost ? "Trip Organizer (Paid total bill upfront)" : "Payment verified"}
-                        >
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>{member.isHost ? "Paid (Host)" : "Paid"}</span>
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-[#C6FF3D]/15 text-[#C6FF3D] border border-[#C6FF3D]/30 select-none cursor-default shadow-sm"
+                            title={member.isHost ? "Trip Organizer (Paid total bill upfront)" : "Payment verified"}
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>{member.isHost ? "Paid (Host)" : "Paid"}</span>
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleResetMemberStatus(member.id)}
+                            className="px-1.5 py-0.5 rounded-lg text-[10px] font-mono text-white/40 hover:text-amber-400 hover:bg-white/5 border border-transparent hover:border-amber-400/25 transition-all cursor-pointer flex items-center gap-0.5 active:scale-95"
+                            title={`Reset ${member.name}'s status back to Pending`}
+                          >
+                            <RotateCcw className="w-3 h-3 text-amber-400/70" />
+                            <span className="hidden sm:inline">Reset</span>
+                          </button>
+                        </div>
                       ) : (
                         <span
                           className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-amber-400/15 text-amber-400 border border-amber-400/30 select-none cursor-default"
