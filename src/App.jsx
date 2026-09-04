@@ -169,9 +169,11 @@ function App() {
         onToggle={() => setIsAIChatOpen(prev => !prev)}
         onApplyToSplitter={handleApplyAITrip}
         currentTripData={{
-          tripName: 'Goa Trip',
-          hostUpi: currentUser?.upiId || 'prince@oksbi'
+          tripName: 'Group Split',
+          hostName: currentUser?.name || 'You (Host)',
+          hostUpi: currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '')
         }}
+        currentUser={currentUser}
       />
     </main>
   );

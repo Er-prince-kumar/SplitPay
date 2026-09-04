@@ -53,7 +53,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     currentUser?.name || (initialData?.hostName && initialData.hostName !== 'Prince Kumar' ? initialData.hostName : '')
   );
   const [hostUpi, setHostUpi] = useState(
-    currentUser?.upiId || (initialData?.hostUpi && initialData.hostUpi !== 'prince@oksbi' ? initialData.hostUpi : '')
+    currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '') || (initialData?.hostUpi && initialData.hostUpi !== 'prince@oksbi' ? initialData.hostUpi : '')
   );
 
   const [newMemberName, setNewMemberName] = useState('');
@@ -65,13 +65,16 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   const [paymentToast, setPaymentToast] = useState(null);
   const [savedSuccessToast, setSavedSuccessToast] = useState(false);
 
-
-
   const getInitialMembers = () => {
     if (initialData?.members && Array.isArray(initialData.members)) {
-      const hasOldDummy = initialData.members.some(m => m.name === 'Rohit K.' || m.name === 'Priya S.');
+      const hasOldDummy = initialData.members.some(m => m.name === 'Rohit K.' || m.name === 'Priya S.' || m.name === 'Aman M.');
       if (!hasOldDummy && initialData.members.length > 0) {
-        return initialData.members;
+        return initialData.members.map(m => m.isHost ? {
+          ...m,
+          name: currentUser?.name || m.name || 'You (Host)',
+          phone: currentUser?.phone || m.phone || '',
+          avatar: currentUser?.avatar || m.avatar || '👑'
+        } : m);
       }
     }
     return [
@@ -119,11 +122,31 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }
   }, [tripName, totalAmount, hostName, hostUpi, members]);
 
-  // Sync host name if user logs in
+  // Sync host name, UPI and host member whenever currentUser changes / logs in
   useEffect(() => {
-    if (currentUser?.name) {
-      setHostName(currentUser.name);
-      if (currentUser.upiId) setHostUpi(currentUser.upiId);
+    if (currentUser) {
+      if (currentUser.name) setHostName(currentUser.name);
+      const computedUpi = currentUser.upiId || (currentUser.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '');
+      if (computedUpi) setHostUpi(computedUpi);
+
+      setMembers(prev => {
+        if (!prev || prev.length === 0) {
+          return [{
+            id: 1,
+            name: currentUser.name || 'You (Host)',
+            phone: currentUser.phone || '',
+            isHost: true,
+            status: 'paid',
+            avatar: currentUser.avatar || '👑'
+          }];
+        }
+        return prev.map(m => m.isHost ? {
+          ...m,
+          name: currentUser.name || m.name || 'You (Host)',
+          phone: currentUser.phone || m.phone || '',
+          avatar: currentUser.avatar || m.avatar || '👑'
+        } : m);
+      });
     }
   }, [currentUser]);
 
@@ -294,7 +317,8 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     if (window.confirm("Clear all bill details and start fresh?")) {
       setTripName('');
       setTotalAmount('');
-      setHostUpi(currentUser?.upiId || '');
+      setHostName(currentUser?.name || '');
+      setHostUpi(currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : ''));
       setMembers([
         {
           id: 1,

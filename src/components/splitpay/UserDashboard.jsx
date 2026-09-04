@@ -189,20 +189,12 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
       }))
     ];
 
-    // If no friends provided, add 2 sample friends
-    if (membersList.length === 1) {
-      membersList.push(
-        { id: Date.now() + 1, name: 'Aman M.', phone: '9876512345', isHost: false, status: 'pending', avatar: '🎒' },
-        { id: Date.now() + 2, name: 'Priya S.', phone: '9811223344', isHost: false, status: 'pending', avatar: '👩‍🎨' }
-      );
-    }
-
     const newTrip = {
       id: 'trip-' + Date.now(),
       tripName: newTripTitle.trim(),
       totalAmount: Number(newTripAmount),
-      hostName: currentUser?.name || 'Prince Kumar',
-      hostUpi: currentUser?.upiId || 'prince@oksbi',
+      hostName: currentUser?.name || 'You (Host)',
+      hostUpi: currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : ''),
       category: 'Custom Split',
       createdAt: new Date().toISOString().split('T')[0],
       members: membersList
@@ -266,7 +258,7 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
                   className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
                   title="Click to copy UPI ID"
                 >
-                  <span>UPI: <strong className="text-white font-bold">{currentUser?.upiId || 'prince@oksbi'}</strong></span>
+                  <span>UPI: <strong className="text-white font-bold">{currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : 'Set UPI in Profile')}</strong></span>
                   {copiedUpi ? (
                     <Check className="w-3 h-3 text-[#C6FF3D]" />
                   ) : (

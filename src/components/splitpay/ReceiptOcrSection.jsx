@@ -45,17 +45,32 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
     { 
       id: 'm-host', 
       name: currentUser?.name || 'You (Host)', 
+      phone: currentUser?.phone || '',
       avatar: currentUser?.avatar || '👑', 
       isHost: true 
     }
   ]);
 
-  // Sync host name when currentUser updates
+  // Sync host name and phone when currentUser updates
   useEffect(() => {
-    if (currentUser?.name) {
-      setSquad((prev) =>
-        prev.map((m) => m.isHost ? { ...m, name: currentUser.name, avatar: currentUser.avatar || m.avatar } : m)
-      );
+    if (currentUser) {
+      setSquad((prev) => {
+        if (!prev || prev.length === 0) {
+          return [{
+            id: 'm-host',
+            name: currentUser.name || 'You (Host)',
+            phone: currentUser.phone || '',
+            avatar: currentUser.avatar || '👑',
+            isHost: true
+          }];
+        }
+        return prev.map((m) => m.isHost ? { 
+          ...m, 
+          name: currentUser.name || m.name || 'You (Host)', 
+          phone: currentUser.phone || m.phone || '',
+          avatar: currentUser.avatar || m.avatar || '👑' 
+        } : m);
+      });
     }
   }, [currentUser]);
 
@@ -166,6 +181,15 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
     setTax('');
     setTipOrFee('');
     setClaims({});
+    setSquad([
+      { 
+        id: 'm-host', 
+        name: currentUser?.name || 'You (Host)', 
+        phone: currentUser?.phone || '',
+        avatar: currentUser?.avatar || '👑', 
+        isHost: true 
+      }
+    ]);
     sound.playUpiSuccess();
   };
 
@@ -235,6 +259,8 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
       onApplyToSplitter({
         tripName: receiptName || 'Itemized Bill Split',
         totalAmount: splitResult.grandTotal,
+        hostName: currentUser?.name || 'You (Host)',
+        hostUpi: currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : ''),
         members: splitResult.breakdown.map((b) => ({
           id: b.id,
           name: b.name,
@@ -256,10 +282,11 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
   const handleCopySummary = () => {
     sound.playClick();
     sound.playUpiSuccess();
+    const hostUpiId = currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '');
     const summary = buildItemizedWhatsAppSummary({
       receiptName: receiptName || 'Bill Split',
       breakdown: splitResult.breakdown,
-      hostUpi: currentUser?.upiId || 'prince@oksbi',
+      hostUpi: hostUpiId,
       grandTotal: splitResult.grandTotal
     });
 
@@ -273,6 +300,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
   // Share specific friend's breakdown on WhatsApp
   const handleShareFriendWhatsApp = (friendBreakdown) => {
     sound.playClick();
+    const hostUpiId = currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '');
     const itemsList = friendBreakdown.items
       .map((it) => `${it.name} (₹${Math.round(it.sharePrice)}${it.isShared ? ' - shared' : ''})`)
       .join(', ');
@@ -280,7 +308,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
     const text = `Hey ${friendBreakdown.name}! 🧾 In our *${receiptName || 'Group'}* bill:\n` +
       `You ordered: ${itemsList || 'Items'}\n` +
       `Your total share (incl. tax): *₹${friendBreakdown.totalAmount}*\n` +
-      `Pay via UPI: upi://pay?pa=${currentUser?.upiId || 'prince@oksbi'}&am=${friendBreakdown.totalAmount} 🚀`;
+      `Pay via UPI: upi://pay?pa=${hostUpiId}&am=${friendBreakdown.totalAmount} 🚀`;
 
     openWhatsAppDirect(friendBreakdown.phone || '', text);
   };
@@ -762,10 +790,11 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
 
                   <button
                     onClick={() => {
+                      const hostUpiId = currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '');
                       const summary = buildItemizedWhatsAppSummary({
                         receiptName: receiptName || 'Bill Split',
                         breakdown: splitResult.breakdown,
-                        hostUpi: currentUser?.upiId || 'prince@oksbi',
+                        hostUpi: hostUpiId,
                         grandTotal: splitResult.grandTotal
                       });
                       openWhatsAppDirect('', summary);
