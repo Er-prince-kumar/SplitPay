@@ -73,8 +73,8 @@ const Hero3D = ({ onOpenWaitlist }) => {
   };
 
   return (
-    <section className="relative pt-32 pb-16 sm:pt-36 sm:pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden w-full">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+    <section className="relative pt-28 sm:pt-36 pb-16 sm:pb-24 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 overflow-hidden w-full">
+      <div className="w-full max-w-[1440px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
         
         {/* Left: Value Proposition */}
         <div className="lg:col-span-6 space-y-6 text-left">
@@ -86,7 +86,7 @@ const Hero3D = ({ onOpenWaitlist }) => {
           </div>
 
           {/* Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white font-['Space_Grotesk'] leading-[1.08]">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white font-['Space_Grotesk'] leading-[1.08]">
             Split the bill. <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C6FF3D] to-[#0082FB]">
               Not the friendship.
@@ -119,25 +119,25 @@ const Hero3D = ({ onOpenWaitlist }) => {
           </div>
 
           {/* Simple Trust Bullets */}
-          <div className="pt-6 border-t border-white/10 grid grid-cols-3 gap-3 text-xs text-white/60 font-mono">
+          <div className="pt-6 border-t border-white/10 grid grid-cols-3 gap-2 sm:gap-4 text-[11px] sm:text-xs text-white/60 font-mono">
             <div>
               <div className="text-white font-bold text-sm font-['Space_Grotesk']">1-Tap UPI</div>
-              <div>GPay, PhonePe, Paytm</div>
+              <div className="text-white/50 text-[10px] sm:text-xs">GPay, PhonePe, Paytm</div>
             </div>
             <div>
               <div className="text-white font-bold text-sm font-['Space_Grotesk']">Zero Install</div>
-              <div>Direct Web Links</div>
+              <div className="text-white/50 text-[10px] sm:text-xs">Direct Web Links</div>
             </div>
             <div>
               <div className="text-white font-bold text-sm font-['Space_Grotesk']">Instant Settle</div>
-              <div>Direct Bank Transfer</div>
+              <div className="text-white/50 text-[10px] sm:text-xs">Direct Bank Transfer</div>
             </div>
           </div>
 
         </div>
 
         {/* Right: Clean, Elegant Live Split Card */}
-        <div className="lg:col-span-6 w-full max-w-md mx-auto lg:max-w-none">
+        <div className="lg:col-span-6 w-full max-w-lg mx-auto lg:max-w-none">
           <div className="rounded-2xl p-6 sm:p-7 bg-[#121324] border border-white/10 shadow-xl space-y-5">
             
             {/* Card Header & Presets */}

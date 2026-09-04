@@ -51,7 +51,7 @@ const WaitlistSection = () => {
   };
 
   return (
-    <section id="waitlist" className="py-20 sm:py-24 px-4 sm:px-6 lg:px-8 bg-[#0B0C16] border-t border-white/5 w-full scroll-mt-20">
+    <section id="waitlist" className="py-20 sm:py-24 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 bg-[#0B0C16] border-t border-white/5 w-full scroll-mt-20">
       <div className="max-w-4xl mx-auto w-full">
         
         {!submitted ? (

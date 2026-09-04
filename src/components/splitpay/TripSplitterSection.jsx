@@ -164,8 +164,8 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   };
 
   return (
-    <section id="trip-splitter" className="py-20 sm:py-24 px-4 sm:px-6 lg:px-8 bg-[#0D0E1C] border-t border-white/5 w-full scroll-mt-20">
-      <div id="create-split" className="max-w-7xl mx-auto space-y-10">
+    <section id="trip-splitter" className="py-20 sm:py-24 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 bg-[#0D0E1C] border-t border-white/5 w-full scroll-mt-20">
+      <div id="create-split" className="w-full max-w-[1440px] mx-auto space-y-10">
         
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto space-y-3">
@@ -288,11 +288,11 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                     </div>
 
                     {/* Member Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleSendWhatsApp(member)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-medium bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30 transition-colors cursor-pointer flex items-center gap-1"
+                        className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30 transition-colors cursor-pointer flex items-center gap-1"
                         title={`Send WhatsApp message to ${member.name}`}
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
@@ -302,7 +302,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                       <button
                         type="button"
                         onClick={() => handleToggleStatus(member.id)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        className={`px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
                           member.status === 'paid'
                             ? 'bg-[#C6FF3D]/15 text-[#C6FF3D] border border-[#C6FF3D]/30'
                             : 'bg-amber-400/15 text-amber-400 border border-amber-400/30'

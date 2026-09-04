@@ -131,7 +131,7 @@ const AIChatDrawer = ({ isOpen, onToggle, onApplyToSplitter, currentTripData }) 
             sound.playClick();
             onToggle();
           }}
-          className="fixed bottom-6 right-6 z-40 px-4 py-3 rounded-full bg-[#121324] hover:bg-[#1B1B3A] border border-[#C6FF3D]/40 hover:border-[#C6FF3D] text-white font-medium text-xs sm:text-sm shadow-2xl shadow-[#C6FF3D]/15 flex items-center gap-2.5 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 px-4 py-3 rounded-full bg-[#121324] hover:bg-[#1B1B3A] border border-[#C6FF3D]/40 hover:border-[#C6FF3D] text-white font-medium text-xs sm:text-sm shadow-2xl shadow-[#C6FF3D]/15 flex items-center gap-2.5 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer"
           title="Open SplitPay AI Assistant"
         >
           <span className="relative flex h-2.5 w-2.5">
@@ -145,10 +145,21 @@ const AIChatDrawer = ({ isOpen, onToggle, onApplyToSplitter, currentTripData }) 
 
       {/* Slide-up Chat Modal / Drawer */}
       {isOpen && (
-        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[420px] h-[560px] max-h-[85vh] bg-[#121324] border border-white/15 rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
-          
-          {/* Header */}
-          <div className="px-5 py-4 bg-[#0B0C16] border-b border-white/10 flex items-center justify-between">
+        <>
+          {/* Mobile backdrop overlay */}
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 sm:hidden animate-in fade-in duration-200"
+            onClick={onToggle}
+            aria-hidden="true"
+          />
+
+          <div className="fixed inset-x-0 bottom-0 sm:bottom-6 sm:right-6 sm:left-auto sm:inset-x-auto z-50 w-full sm:w-[420px] h-[85vh] sm:h-[580px] bg-[#121324] border-t sm:border border-white/15 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
+            
+            {/* Mobile Sheet Drag Indicator */}
+            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
+            {/* Header */}
+            <div className="px-5 py-3.5 sm:py-4 bg-[#0B0C16] border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-[#C6FF3D]/15 border border-[#C6FF3D]/40 flex items-center justify-center text-[#C6FF3D]">
                 <Bot className="w-4 h-4" />
@@ -350,6 +361,7 @@ const AIChatDrawer = ({ isOpen, onToggle, onApplyToSplitter, currentTripData }) 
           </form>
 
         </div>
+        </>
       )}
     </>
   );

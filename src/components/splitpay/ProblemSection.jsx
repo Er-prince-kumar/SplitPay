@@ -27,8 +27,8 @@ const ProblemSection = () => {
   ];
 
   return (
-    <section id="problem" className="py-20 sm:py-24 px-4 sm:px-6 lg:px-8 bg-[#0B0C16] border-t border-white/5 w-full">
-      <div className="max-w-7xl mx-auto space-y-12">
+    <section id="problem" className="py-20 sm:py-24 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 bg-[#0B0C16] border-t border-white/5 w-full">
+      <div className="w-full max-w-[1440px] mx-auto space-y-12">
         
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto space-y-3">

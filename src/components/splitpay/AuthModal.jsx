@@ -167,8 +167,8 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 select-none">
-      <div className="w-full max-w-md rounded-3xl bg-[#15162B] border border-[#C6FF3D]/40 p-6 sm:p-8 text-white shadow-2xl shadow-[#C6FF3D]/10 relative glass-card animate-in zoom-in-95 duration-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 select-none overflow-y-auto">
+      <div className="w-full max-w-md my-auto max-h-[92vh] overflow-y-auto rounded-3xl bg-[#15162B] border border-[#C6FF3D]/40 p-5 sm:p-8 text-white shadow-2xl shadow-[#C6FF3D]/10 relative glass-card animate-in zoom-in-95 duration-200">
         
         {/* Ambient Top Glow */}
         <div className="absolute -top-16 -right-16 w-36 h-36 bg-[#C6FF3D]/20 rounded-full blur-3xl pointer-events-none" />

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowRight, User, LogOut, PlusCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowRight, User, LogOut, PlusCircle, Sparkles, Menu, X } from 'lucide-react';
 import { sound } from '../../utils/audio';
 
 const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentUser, onSignOut }) => {
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -13,19 +14,26 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
   return (
     <header className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-      scrolled 
-        ? 'py-3.5 bg-[#0B0C16]/90 backdrop-blur-md border-b border-white/10 shadow-lg' 
+      scrolled || mobileMenuOpen
+        ? 'py-3.5 bg-[#0B0C16]/95 backdrop-blur-md border-b border-white/10 shadow-lg' 
         : 'py-5 bg-transparent'
     }`}>
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+      <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 flex items-center justify-between">
         
         {/* Brand Logo */}
         <a 
           href="#" 
           className="flex items-center gap-2.5 group cursor-pointer"
-          onClick={() => sound.playClick()}
+          onClick={() => {
+            sound.playClick();
+            closeMobileMenu();
+          }}
         >
           <div className="w-9 h-9 rounded-xl bg-[#1B1B3A] border border-[#C6FF3D]/40 flex items-center justify-center group-hover:border-[#C6FF3D] transition-colors shadow-sm">
             <span className="font-extrabold text-lg text-[#C6FF3D] font-mono tracking-tighter">S/P</span>
@@ -35,7 +43,7 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
           </span>
         </a>
 
-        {/* Navigation Links */}
+        {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-7 text-sm text-white/70">
           <a 
             href="#trip-splitter" 
@@ -51,11 +59,18 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
               sound.playClick();
               if (onOpenAIChat) onOpenAIChat();
             }}
-            className="hover:text-[#C6FF3D] transition-colors flex items-center gap-1 cursor-pointer text-sm text-white/80"
+            className="hover:text-[#C6FF3D] transition-colors flex items-center gap-1.5 cursor-pointer text-sm text-white/80"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-pulse" />
             <span>AI Assistant</span>
           </button>
+          <a 
+            href="#problem" 
+            className="hover:text-white transition-colors"
+            onClick={() => sound.playClick()}
+          >
+            Why
+          </a>
           <a 
             href="#how-it-works" 
             className="hover:text-white transition-colors"
@@ -79,12 +94,12 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
           </a>
         </nav>
 
-        {/* User Auth & Primary CTA */}
-        <div className="flex items-center gap-3">
+        {/* Right Actions: Auth, Waitlist, and Mobile Menu Hamburger */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
           {currentUser ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#14152A] border border-white/10 text-xs">
               <span className="text-base">{currentUser.avatar || '👑'}</span>
-              <span className="text-white font-medium max-w-[100px] truncate">{currentUser.name}</span>
+              <span className="text-white font-medium max-w-[90px] sm:max-w-[120px] truncate">{currentUser.name}</span>
               <button
                 onClick={() => {
                   sound.playClick();
@@ -102,7 +117,7 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
                 sound.playClick();
                 onOpenAuth();
               }}
-              className="px-3.5 py-2 rounded-xl text-xs font-medium text-white/80 hover:text-white hover:bg-white/5 border border-white/10 transition-colors cursor-pointer flex items-center gap-1.5"
+              className="hidden sm:flex px-3.5 py-2 rounded-xl text-xs font-medium text-white/80 hover:text-white hover:bg-white/5 border border-white/10 transition-colors cursor-pointer items-center gap-1.5"
             >
               <User className="w-3.5 h-3.5 text-[#C6FF3D]" />
               <span>Log in</span>
@@ -112,16 +127,122 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
           <button
             onClick={() => {
               sound.playClick();
+              closeMobileMenu();
               if (onOpenWaitlist) onOpenWaitlist();
             }}
-            className="px-4 py-2 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5 active:scale-95 shadow-md shadow-[#C6FF3D]/10 cursor-pointer font-['Space_Grotesk']"
+            className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5 active:scale-95 shadow-md shadow-[#C6FF3D]/10 cursor-pointer font-['Space_Grotesk'] shrink-0"
           >
             <span>Join waitlist</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
+
+          {/* Mobile Hamburger Toggle Button */}
+          <button
+            type="button"
+            onClick={() => {
+              sound.playClick();
+              setMobileMenuOpen(prev => !prev);
+            }}
+            className="md:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5 text-[#C6FF3D]" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
 
       </div>
+
+      {/* Mobile Navigation Dropdown Sheet */}
+      {mobileMenuOpen && (
+        <div className="md:hidden px-4 pt-3 pb-6 border-t border-white/10 bg-[#0B0C16] animate-in slide-in-from-top-2 duration-200">
+          <nav className="flex flex-col space-y-3 pt-2 text-sm font-medium">
+            <a 
+              href="#trip-splitter" 
+              className="p-2.5 rounded-xl bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/20 font-bold flex items-center gap-2"
+              onClick={() => {
+                sound.playClick();
+                closeMobileMenu();
+              }}
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Create Bill Split</span>
+            </a>
+
+            <button 
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                closeMobileMenu();
+                if (onOpenAIChat) onOpenAIChat();
+              }}
+              className="p-2.5 rounded-xl bg-white/5 text-white hover:text-[#C6FF3D] border border-white/10 flex items-center gap-2 text-left"
+            >
+              <Sparkles className="w-4 h-4 text-[#C6FF3D]" />
+              <span>SplitPay AI Assistant</span>
+            </button>
+
+            <a 
+              href="#problem" 
+              className="p-2 text-white/70 hover:text-white"
+              onClick={() => {
+                sound.playClick();
+                closeMobileMenu();
+              }}
+            >
+              The Problem
+            </a>
+
+            <a 
+              href="#how-it-works" 
+              className="p-2 text-white/70 hover:text-white"
+              onClick={() => {
+                sound.playClick();
+                closeMobileMenu();
+              }}
+            >
+              How It Works
+            </a>
+
+            <a 
+              href="#features" 
+              className="p-2 text-white/70 hover:text-white"
+              onClick={() => {
+                sound.playClick();
+                closeMobileMenu();
+              }}
+            >
+              Features
+            </a>
+
+            <a 
+              href="#trust" 
+              className="p-2 text-white/70 hover:text-white"
+              onClick={() => {
+                sound.playClick();
+                closeMobileMenu();
+              }}
+            >
+              Security &amp; Razorpay
+            </a>
+
+            {!currentUser && (
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  closeMobileMenu();
+                  onOpenAuth();
+                }}
+                className="mt-2 p-2.5 rounded-xl bg-white/10 text-white text-xs font-mono font-bold flex items-center justify-center gap-1.5"
+              >
+                <User className="w-3.5 h-3.5 text-[#C6FF3D]" />
+                <span>Log In / Sign Up</span>
+              </button>
+            )}
+          </nav>
+        </div>
+      )}
+
     </header>
   );
 };

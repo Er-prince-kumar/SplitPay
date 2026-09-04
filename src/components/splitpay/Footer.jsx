@@ -3,8 +3,8 @@ import { ShieldCheck } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="bg-[#080912] text-white py-14 px-4 sm:px-6 lg:px-8 border-t border-white/10 w-full">
-      <div className="max-w-7xl mx-auto space-y-10">
+    <footer className="bg-[#080912] text-white py-14 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 border-t border-white/10 w-full">
+      <div className="w-full max-w-[1440px] mx-auto space-y-10">
         
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start justify-between">
           
