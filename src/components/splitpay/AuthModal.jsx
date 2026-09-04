@@ -7,6 +7,7 @@ import {
   School, 
   Smartphone, 
   ArrowRight, 
+  ArrowLeft,
   CheckCircle2, 
   AlertCircle,
   ShieldCheck,
@@ -33,7 +34,7 @@ const campuses = [
 ];
 
 const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
-  // 3 distinct views: 'login' | 'signup' | 'forgot'
+  // 'login' | 'signup' | 'forgot'
   const [authTab, setAuthTab] = useState('login');
   
   const [formData, setFormData] = useState({
@@ -46,6 +47,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -75,7 +77,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     const cleanPassword = formData.password.trim();
 
     if (!cleanIdentifier) {
-      setErrorMessage("Please enter your email or mobile number.");
+      setErrorMessage("Please enter your registered email or mobile number.");
       return;
     }
 
@@ -102,7 +104,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       setLoading(false);
 
       // ==========================================
-      // 1. SIGN IN (LOGIN) INTERFACE FLOW
+      // 1. SIGN IN (LOGIN) FLOW
       // ==========================================
       if (authTab === 'login') {
         const matchedUser = registeredUsers.find(u => 
@@ -149,7 +151,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         // Matched user exists: verify password
         if (matchedUser.password && matchedUser.password !== cleanPassword) {
           sound.playHover();
-          setErrorMessage("Incorrect password. Click 'Forgot Password' above to reset your password.");
+          setErrorMessage("Incorrect password. Click 'Forgot password?' below to reset it.");
           return;
         }
 
@@ -170,7 +172,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       }
 
       // ==========================================
-      // 2. CREATE ACCOUNT (SIGN UP) INTERFACE FLOW
+      // 2. CREATE ACCOUNT (SIGN UP) FLOW
       // ==========================================
       if (authTab === 'signup') {
         if (!formData.name.trim()) {
@@ -179,7 +181,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         }
 
         if (cleanPassword.length < 4) {
-          setErrorMessage("Password must be at least 4 characters.");
+          setErrorMessage("Password must be at least 4 characters long.");
           return;
         }
 
@@ -190,7 +192,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         );
 
         if (existingUser) {
-          setErrorMessage("An account already exists with this email/phone! Please switch to Sign In.");
+          setErrorMessage("An account already exists with this email/phone! Please sign in or reset your password.");
           return;
         }
 
@@ -225,7 +227,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       }
 
       // ==========================================
-      // 3. FORGOT PASSWORD INTERFACE FLOW
+      // 3. DEDICATED FORGOT PASSWORD FLOW
       // ==========================================
       if (authTab === 'forgot') {
         if (cleanPassword.length < 4) {
@@ -234,7 +236,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         }
 
         if (cleanPassword !== formData.confirmPassword.trim()) {
-          setErrorMessage("New password and confirm password do not match!");
+          setErrorMessage("Password and Confirm Password do not match! Please check again.");
           return;
         }
 
@@ -252,7 +254,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         });
 
         if (!found) {
-          // If user didn't exist in cache, create them with the new password
+          // If user didn't exist in cache, create/register them with this new password
           const isEmail = cleanIdentifier.includes('@');
           updatedUser = {
             name: isEmail ? cleanIdentifier.split('@')[0] : 'Campus Member',
@@ -296,19 +298,30 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#1B1B3A] border border-[#C6FF3D]/50 flex items-center justify-center text-[#C6FF3D] font-mono font-bold text-xs">
-              S/P
-            </div>
+            {authTab === 'forgot' ? (
+              <button
+                type="button"
+                onClick={() => switchTab('login')}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors cursor-pointer"
+                title="Back to Login"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            ) : (
+              <div className="w-8 h-8 rounded-xl bg-[#1B1B3A] border border-[#C6FF3D]/50 flex items-center justify-center text-[#C6FF3D] font-mono font-bold text-xs">
+                S/P
+              </div>
+            )}
             <div>
               <h3 className="font-bold text-lg font-['Space_Grotesk'] text-white">
                 {authTab === 'login' && "Member Sign In"}
                 {authTab === 'signup' && "Create Account"}
-                {authTab === 'forgot' && "Forgot Password"}
+                {authTab === 'forgot' && "Reset Password"}
               </h3>
               <p className="text-[11px] font-mono text-white/50">
-                {authTab === 'login' && "Sign in to your registered SplitPay account"}
+                {authTab === 'login' && "Sign in to your SplitPay account"}
                 {authTab === 'signup' && "Register to manage and split campus bills"}
-                {authTab === 'forgot' && "Reset your password and regain instant access"}
+                {authTab === 'forgot' && "Enter your details to create a new password"}
               </p>
             </div>
           </div>
@@ -325,53 +338,55 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           </button>
         </div>
 
-        {/* 3 Dedicated Segmented Tabs */}
-        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-[#0B0C16] my-4 border border-white/10 text-xs font-mono">
-          <button
-            type="button"
-            onClick={() => switchTab('login')}
-            className={`py-2 px-1 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 ${
-              authTab === 'login' ? 'bg-[#C6FF3D] text-[#0B0C16] shadow-md' : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Sign In</span>
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => switchTab('signup')}
-            className={`py-2 px-1 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 ${
-              authTab === 'signup' ? 'bg-[#C6FF3D] text-[#0B0C16] shadow-md' : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span className="truncate">Sign Up</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => switchTab('forgot')}
-            className={`py-2 px-1 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 ${
-              authTab === 'forgot' ? 'bg-[#C6FF3D] text-[#0B0C16] shadow-md' : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <KeyRound className="w-3.5 h-3.5" />
-            <span className="truncate">Forgot</span>
-          </button>
-        </div>
+        {/* Tabs switcher: only shown for Sign In and Sign Up (clean 2-tab view) */}
+        {authTab !== 'forgot' && (
+          <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[#0B0C16] my-4 border border-white/10 text-xs font-mono">
+            <button
+              type="button"
+              onClick={() => switchTab('login')}
+              className={`py-2 px-2 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 ${
+                authTab === 'login' ? 'bg-[#C6FF3D] text-[#0B0C16] shadow-md' : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => switchTab('signup')}
+              className={`py-2 px-2 rounded-xl transition-all cursor-pointer font-bold flex items-center justify-center gap-1.5 ${
+                authTab === 'signup' ? 'bg-[#C6FF3D] text-[#0B0C16] shadow-md' : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Create Account</span>
+            </button>
+          </div>
+        )}
 
         {/* Error Alert Box */}
         {errorMessage && (
-          <div className="mb-4 p-3 rounded-2xl bg-[#FF6B4A]/15 border border-[#FF6B4A]/40 text-[#FF6B4A] text-xs font-mono flex items-start gap-2 animate-in fade-in duration-150">
+          <div className="my-3 p-3 rounded-2xl bg-[#FF6B4A]/15 border border-[#FF6B4A]/40 text-[#FF6B4A] text-xs font-mono flex items-start gap-2 animate-in fade-in duration-150">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <div className="leading-snug text-left flex-1">{errorMessage}</div>
+            <div className="leading-snug text-left flex-1">
+              {errorMessage}
+              {authTab === 'login' && errorMessage.includes("Incorrect password") && (
+                <button
+                  type="button"
+                  onClick={() => switchTab('forgot')}
+                  className="block mt-1.5 text-[#C6FF3D] underline font-bold hover:text-white cursor-pointer"
+                >
+                  Click here to Reset Password
+                </button>
+              )}
+            </div>
           </div>
         )}
 
         {/* Success Alert Box */}
         {successMessage && (
-          <div className="mb-4 p-3 rounded-2xl bg-[#C6FF3D]/15 border border-[#C6FF3D]/40 text-[#C6FF3D] text-xs font-mono flex items-start gap-2 animate-in fade-in duration-150">
+          <div className="my-3 p-3 rounded-2xl bg-[#C6FF3D]/15 border border-[#C6FF3D]/40 text-[#C6FF3D] text-xs font-mono flex items-start gap-2 animate-in fade-in duration-150">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             <div className="leading-snug text-left flex-1">{successMessage}</div>
           </div>
@@ -399,14 +414,14 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               </div>
             </div>
 
-            {/* Password with Eye Toggle */}
+            {/* Password with Eye Toggle & Reset Button */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="text-white/60 text-[11px]">PASSWORD *</label>
                 <button
                   type="button"
                   onClick={() => switchTab('forgot')}
-                  className="text-[10px] text-[#C6FF3D]/80 hover:text-[#C6FF3D] cursor-pointer"
+                  className="text-[11px] text-[#C6FF3D] hover:underline font-medium cursor-pointer"
                 >
                   Forgot password?
                 </button>
@@ -610,13 +625,14 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         )}
 
         {/* ================================================================= */}
-        {/* INTERFACE 3: FORGOT PASSWORD                                      */}
+        {/* INTERFACE 3: DEDICATED FORGOT & RESET PASSWORD INTERFACE          */}
         {/* ================================================================= */}
         {authTab === 'forgot' && (
-          <form onSubmit={handleSubmit} className="space-y-3.5 text-xs font-mono text-left">
-            {/* Email or Phone */}
+          <form onSubmit={handleSubmit} className="space-y-4 text-xs font-mono text-left pt-1">
+            
+            {/* Registered Account Identifier */}
             <div className="space-y-1">
-              <label className="text-white/60 text-[11px]">REGISTERED EMAIL OR MOBILE NUMBER *</label>
+              <label className="text-white/70 text-[11px]">REGISTERED EMAIL OR MOBILE NUMBER *</label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
                 <input
@@ -631,11 +647,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               </div>
             </div>
 
-            {/* New Password */}
+            {/* 1. Enter New Password */}
             <div className="space-y-1">
-              <label className="text-white/60 text-[11px]">NEW PASSWORD *</label>
+              <label className="text-[#C6FF3D] text-[11px] font-bold">1. ENTER NEW PASSWORD *</label>
               <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#C6FF3D]" />
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
@@ -643,7 +659,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   placeholder="Enter new password (min. 4 characters)"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#0B0C16] border border-[#C6FF3D]/40 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
                 />
                 <button
                   type="button"
@@ -659,24 +675,35 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
               </div>
             </div>
 
-            {/* Confirm New Password */}
+            {/* 2. Confirm Password */}
             <div className="space-y-1">
-              <label className="text-white/60 text-[11px]">CONFIRM NEW PASSWORD *</label>
+              <label className="text-[#C6FF3D] text-[11px] font-bold">2. CONFIRM PASSWORD *</label>
               <div className="relative">
-                <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+                <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#C6FF3D]" />
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showConfirmPassword ? "text" : "password"}
                   name="confirmPassword"
                   required
-                  placeholder="Re-enter new password"
+                  placeholder="Confirm new password"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#0B0C16] border border-[#C6FF3D]/40 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setShowConfirmPassword(prev => !prev);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors cursor-pointer p-0.5"
+                  title={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
-            {/* Submit Button */}
+            {/* Submit CTA */}
             <div className="pt-2">
               <button
                 type="submit"
@@ -686,18 +713,18 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 {loading ? (
                   <>
                     <span className="w-4 h-4 rounded-full border-2 border-[#0B0C16] border-t-transparent animate-spin" />
-                    <span>Updating password...</span>
+                    <span>Resetting password...</span>
                   </>
                 ) : (
                   <>
                     <RotateCcw className="w-4 h-4" />
-                    <span>Update Password &amp; Sign In</span>
+                    <span>Reset Password &amp; Sign In</span>
                   </>
                 )}
               </button>
             </div>
 
-            {/* Switch back to Login */}
+            {/* Back to Login */}
             <div className="text-center pt-2 text-[11px] text-white/50">
               Remembered your password?{' '}
               <button
