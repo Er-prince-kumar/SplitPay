@@ -10,7 +10,12 @@ import {
   CheckCircle2, 
   AlertCircle,
   Zap, 
-  ShieldCheck
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Phone,
+  KeyRound,
+  RotateCcw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';
@@ -36,8 +41,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     college: campuses[0],
     upiId: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [showResetOption, setShowResetOption] = useState(false);
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -46,19 +52,49 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setErrorMessage('');
-    setSuccessMessage('');
+    setShowResetOption(false);
+  };
+
+  const handleQuickLogin = (demoProfile) => {
+    sound.playClick();
+    localStorage.setItem('splitpay_user', JSON.stringify(demoProfile));
+    
+    try {
+      const stored = localStorage.getItem('splitpay_registered_users');
+      const list = stored ? JSON.parse(stored) : [];
+      if (!list.some(u => u.email === demoProfile.email)) {
+        list.push(demoProfile);
+        localStorage.setItem('splitpay_registered_users', JSON.stringify(list));
+      }
+    } catch (err) {}
+
+    sound.playUpiSuccess();
+    confetti({
+      particleCount: 70,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#C6FF3D', '#0082FB', '#25D366']
+    });
+
+    onLoginSuccess(demoProfile);
+    onClose();
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setErrorMessage('');
-    setSuccessMessage('');
+    setShowResetOption(false);
 
-    const cleanEmail = formData.email.trim().toLowerCase();
+    const cleanIdentifier = formData.email.trim().toLowerCase();
     const cleanPassword = formData.password.trim();
 
-    if (!cleanEmail || !cleanPassword) {
-      setErrorMessage("Please enter both email and password.");
+    if (!cleanIdentifier) {
+      setErrorMessage("Please enter your email address or mobile number.");
+      return;
+    }
+
+    if (!cleanPassword) {
+      setErrorMessage("Please enter your password.");
       return;
     }
 
@@ -91,21 +127,29 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           return;
         }
 
-        // Check if email already registered
-        const existingUser = registeredUsers.find(u => u.email === cleanEmail);
+        // Check if email or phone already registered
+        const existingUser = registeredUsers.find(u => 
+          (u.email && u.email.toLowerCase() === cleanIdentifier) ||
+          (u.phone && u.phone.replace(/[\s+-]/g, '') === cleanIdentifier.replace(/[\s+-]/g, ''))
+        );
+
         if (existingUser) {
-          setErrorMessage("An account already exists with this email! Please switch to Sign In.");
+          setErrorMessage("An account already exists with this email/phone! Click 'Sign In' tab above.");
+          setShowResetOption(true);
           return;
         }
 
+        const isEmail = cleanIdentifier.includes('@');
         // Create new account
         const newUser = {
           name: formData.name.trim(),
-          email: cleanEmail,
+          email: isEmail ? cleanIdentifier : `${cleanIdentifier}@campus.splitpay`,
+          phone: !isEmail ? cleanIdentifier : '9876543210',
           password: cleanPassword,
           college: formData.college,
           upiId: formData.upiId.trim() || `${formData.name.trim().toLowerCase().replace(/\s+/g, '')}@upi`,
-          avatar: '🎒',
+          roomNo: 'Hostel BH-4, Room 302',
+          avatar: '👑',
           createdAt: new Date().toISOString()
         };
 
@@ -126,36 +170,57 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
       } else {
         // --- SIGN IN / LOGIN FLOW ---
+        // Find existing user by email or mobile number
+        const matchedUser = registeredUsers.find(u => 
+          (u.email && u.email.toLowerCase() === cleanIdentifier) ||
+          (u.phone && u.phone.replace(/[\s+-]/g, '') === cleanIdentifier.replace(/[\s+-]/g, ''))
+        );
+
         if (!matchedUser) {
-          // Seamless auto-provisioning so user is never locked out
+          // Seamless auto-provisioning so user is never blocked or locked out
+          const isEmail = cleanIdentifier.includes('@');
+          const autoName = isEmail 
+            ? cleanIdentifier.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) 
+            : 'Campus Member';
+
           const autoUser = {
-            name: cleanEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Prince Kumar',
-            email: cleanEmail,
+            name: autoName || 'Prince Kumar',
+            email: isEmail ? cleanIdentifier : `${cleanIdentifier}@campus.splitpay`,
+            phone: !isEmail ? cleanIdentifier : '9876543210',
             password: cleanPassword,
             college: campuses[0],
-            upiId: `${cleanEmail.split('@')[0]}@upi`,
-            phone: '9876543210',
+            upiId: `${cleanIdentifier.replace(/[^a-zA-Z0-9]/g, '')}@upi`,
             roomNo: 'Hostel BH-4, Room 302',
             avatar: '👑',
             createdAt: new Date().toISOString()
           };
+
           registeredUsers.push(autoUser);
           localStorage.setItem('splitpay_registered_users', JSON.stringify(registeredUsers));
           localStorage.setItem('splitpay_user', JSON.stringify(autoUser));
+          
           sound.playUpiSuccess();
+          confetti({
+            particleCount: 60,
+            spread: 60,
+            origin: { y: 0.6 },
+            colors: ['#C6FF3D', '#0082FB', '#FFFFFF']
+          });
+
           onLoginSuccess(autoUser);
           onClose();
           return;
         }
 
-        // Check password match
-        if (matchedUser.password !== cleanPassword) {
+        // Matched user exists: check password
+        if (matchedUser.password && matchedUser.password !== cleanPassword) {
           sound.playHover();
-          setErrorMessage("❌ Incorrect password! Please check your password and try again.");
+          setErrorMessage("❌ Password match nahi kiya. Kripya apna password check karein ya neeche 'Reset Password' par click karein.");
+          setShowResetOption(true);
           return;
         }
 
-        // Successfully authenticated with verified account!
+        // Successfully authenticated!
         localStorage.setItem('splitpay_user', JSON.stringify(matchedUser));
         sound.playUpiSuccess();
 
@@ -169,14 +234,69 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         onLoginSuccess(matchedUser);
         onClose();
       }
-    }, 400);
+    }, 350);
+  };
+
+  const handleResetPasswordAndLogin = () => {
+    sound.playClick();
+    const cleanIdentifier = formData.email.trim().toLowerCase() || 'prince@lpu.in';
+    const newPassword = formData.password.trim() || 'password123';
+
+    try {
+      const stored = localStorage.getItem('splitpay_registered_users');
+      let list = stored ? JSON.parse(stored) : [];
+      let found = false;
+
+      list = list.map(u => {
+        if ((u.email && u.email.toLowerCase() === cleanIdentifier) || 
+            (u.phone && u.phone.replace(/[\s+-]/g, '') === cleanIdentifier.replace(/[\s+-]/g, ''))) {
+          found = true;
+          return { ...u, password: newPassword };
+        }
+        return u;
+      });
+
+      const updatedUser = found 
+        ? list.find(u => (u.email && u.email.toLowerCase() === cleanIdentifier) || (u.phone && u.phone === cleanIdentifier))
+        : {
+            name: cleanIdentifier.split('@')[0] || 'Prince Kumar',
+            email: cleanIdentifier.includes('@') ? cleanIdentifier : `${cleanIdentifier}@campus.splitpay`,
+            phone: !cleanIdentifier.includes('@') ? cleanIdentifier : '9876543210',
+            password: newPassword,
+            college: campuses[0],
+            upiId: 'prince@oksbi',
+            roomNo: 'Hostel BH-4, Room 302',
+            avatar: '👑',
+            createdAt: new Date().toISOString()
+          };
+
+      if (!found) {
+        list.push(updatedUser);
+      }
+
+      localStorage.setItem('splitpay_registered_users', JSON.stringify(list));
+      localStorage.setItem('splitpay_user', JSON.stringify(updatedUser));
+
+      sound.playUpiSuccess();
+      confetti({
+        particleCount: 70,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#C6FF3D', '#0082FB', '#FFFFFF']
+      });
+
+      onLoginSuccess(updatedUser);
+      onClose();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const switchTab = (toSignUp) => {
     sound.playClick();
     setIsSignUp(toSignUp);
     setErrorMessage('');
-    setSuccessMessage('');
+    setShowResetOption(false);
   };
 
   return (
@@ -197,12 +317,13 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 {isSignUp ? "Create Campus Account" : "Member Sign In"}
               </h3>
               <p className="text-[11px] font-mono text-white/50">
-                {isSignUp ? "Register your account to manage group expenses" : "Sign in to your registered SplitPay account"}
+                {isSignUp ? "Register to manage and split campus expenses" : "Sign in to your SplitPay account"}
               </p>
             </div>
           </div>
 
           <button 
+            type="button"
             onClick={() => {
               sound.playClick();
               onClose();
@@ -214,7 +335,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         </div>
 
         {/* Switch Tabs (Login vs Sign Up) */}
-        <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[#0B0C16] my-5 border border-white/10 text-xs font-mono">
+        <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[#0B0C16] my-4 border border-white/10 text-xs font-mono">
           <button
             type="button"
             onClick={() => switchTab(false)}
@@ -235,54 +356,69 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           </button>
         </div>
 
-        {/* 1-Tap Quick Demo Login Option */}
-        <button
-          type="button"
-          onClick={() => {
-            const demoUser = {
-              name: 'Prince Kumar',
-              email: 'prince@lpu.in',
-              password: 'password123',
-              college: 'Lovely Professional University (LPU)',
-              upiId: 'prince@oksbi',
-              phone: '9876543210',
-              roomNo: 'Hostel BH-4, Room 302',
-              avatar: '👑',
-              createdAt: new Date().toISOString()
-            };
-            localStorage.setItem('splitpay_user', JSON.stringify(demoUser));
-            
-            try {
-              const stored = localStorage.getItem('splitpay_registered_users');
-              const list = stored ? JSON.parse(stored) : [];
-              if (!list.some(u => u.email === demoUser.email)) {
-                list.push(demoUser);
-                localStorage.setItem('splitpay_registered_users', JSON.stringify(list));
-              }
-            } catch (err) {}
+        {/* 1-Tap Quick Demo Login Options */}
+        <div className="space-y-1.5 mb-4">
+          <label className="text-[10px] font-mono text-white/40 block text-left">
+            QUICK 1-TAP LOGIN (NO TYPING NEEDED):
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleQuickLogin({
+                name: 'Prince Kumar',
+                email: 'prince@lpu.in',
+                password: 'password123',
+                college: 'Lovely Professional University (LPU)',
+                upiId: 'prince@oksbi',
+                phone: '9876543210',
+                roomNo: 'Hostel BH-4, Room 302',
+                avatar: '👑',
+                createdAt: new Date().toISOString()
+              })}
+              className="py-2 px-2.5 rounded-xl bg-[#C6FF3D]/10 hover:bg-[#C6FF3D]/20 border border-[#C6FF3D]/30 hover:border-[#C6FF3D] text-[#C6FF3D] font-bold text-[11px] font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-left"
+            >
+              <Zap className="w-3.5 h-3.5 shrink-0 fill-current" />
+              <span className="truncate">Prince Kumar (LPU)</span>
+            </button>
 
-            sound.playUpiSuccess();
-            confetti({
-              particleCount: 60,
-              spread: 60,
-              origin: { y: 0.6 },
-              colors: ['#C6FF3D', '#0082FB', '#25D366']
-            });
-
-            onLoginSuccess(demoUser);
-            onClose();
-          }}
-          className="w-full py-2.5 mb-4 rounded-xl bg-gradient-to-r from-[#C6FF3D]/20 via-[#0082FB]/20 to-[#C6FF3D]/20 border border-[#C6FF3D]/40 hover:border-[#C6FF3D] text-[#C6FF3D] font-bold text-xs font-mono transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-md shadow-[#C6FF3D]/5"
-        >
-          <Zap className="w-3.5 h-3.5 text-[#C6FF3D] fill-current" />
-          <span>⚡ 1-Tap Quick Login (Prince Kumar - LPU)</span>
-        </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin({
+                name: 'Ananya Sharma',
+                email: 'ananya@du.ac.in',
+                password: 'password123',
+                college: 'Delhi University (DU)',
+                upiId: 'ananya@paytm',
+                phone: '9811223344',
+                roomNo: 'Kaveri Hostel, Room 104',
+                avatar: '👩‍🎨',
+                createdAt: new Date().toISOString()
+              })}
+              className="py-2 px-2.5 rounded-xl bg-[#0082FB]/10 hover:bg-[#0082FB]/20 border border-[#0082FB]/30 hover:border-[#0082FB] text-[#0082FB] font-bold text-[11px] font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-left"
+            >
+              <Zap className="w-3.5 h-3.5 shrink-0 fill-current" />
+              <span className="truncate">Ananya (DU)</span>
+            </button>
+          </div>
+        </div>
 
         {/* Error Alert Box */}
         {errorMessage && (
           <div className="mb-4 p-3 rounded-2xl bg-[#FF6B4A]/15 border border-[#FF6B4A]/40 text-[#FF6B4A] text-xs font-mono flex items-start gap-2 animate-in fade-in duration-150">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <div className="leading-snug text-left">{errorMessage}</div>
+            <div className="leading-snug text-left flex-1">
+              <div>{errorMessage}</div>
+              {showResetOption && (
+                <button
+                  type="button"
+                  onClick={handleResetPasswordAndLogin}
+                  className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FF6B4A]/20 hover:bg-[#FF6B4A]/30 text-white font-bold text-[11px] transition-colors cursor-pointer border border-[#FF6B4A]/50"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Update Password &amp; Sign In Now</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -346,18 +482,18 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             </>
           )}
 
-          {/* Email */}
+          {/* Email or Phone Number */}
           <div className="space-y-1">
             <label className="text-white/60 text-[11px]">
-              {isSignUp ? "EMAIL ADDRESS (COLLEGE OR PERSONAL) *" : "REGISTERED EMAIL ADDRESS *"}
+              {isSignUp ? "EMAIL OR MOBILE NUMBER *" : "EMAIL OR MOBILE NUMBER *"}
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
               <input
-                type="email"
+                type="text"
                 name="email"
                 required
-                placeholder="you@college.edu or gmail.com"
+                placeholder="e.g. prince@lpu.in or 9876543210"
                 value={formData.email}
                 onChange={handleChange}
                 className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
@@ -365,20 +501,46 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             </div>
           </div>
 
-          {/* Password */}
+          {/* Password with Show/Hide Toggle */}
           <div className="space-y-1">
-            <label className="text-white/60 text-[11px]">PASSWORD *</label>
+            <div className="flex items-center justify-between">
+              <label className="text-white/60 text-[11px]">PASSWORD *</label>
+              {!isSignUp && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setShowResetOption(true);
+                    setErrorMessage("Enter your new password below and click 'Update Password & Sign In Now'");
+                  }}
+                  className="text-[10px] text-[#C6FF3D]/80 hover:text-[#C6FF3D] cursor-pointer"
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
             <div className="relative">
               <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 name="password"
                 required
-                placeholder="••••••••"
+                placeholder="Enter password (e.g. password123)"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setShowPassword(prev => !prev);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors cursor-pointer p-0.5"
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
@@ -396,7 +558,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 </>
               ) : (
                 <>
-                  <span>{isSignUp ? "Register & Create Account" : "Sign In with Account"}</span>
+                  <span>{isSignUp ? "Register & Create Account" : "Sign In to SplitPay"}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
