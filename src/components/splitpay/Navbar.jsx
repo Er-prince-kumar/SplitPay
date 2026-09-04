@@ -56,79 +56,96 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
 
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-7 text-sm text-white/70">
-          <a 
-            href="#trip-splitter" 
-            className="text-[#C6FF3D] hover:text-[#b5f422] transition-colors font-semibold flex items-center gap-1.5 cursor-pointer"
-            onClick={(e) => scrollToSection(e, 'trip-splitter')}
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Split a Bill</span>
-          </a>
-          <a 
-            href="#create-split" 
-            className="hover:text-white transition-colors cursor-pointer"
-            onClick={(e) => scrollToSection(e, 'create-split')}
-          >
-            Create Split
-          </a>
-          {currentUser && (
-            <a 
-              href="#user-dashboard" 
-              className="px-2.5 py-1 rounded-lg bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/30 font-bold hover:bg-[#C6FF3D]/20 transition-colors flex items-center gap-1.5 cursor-pointer text-xs"
-              onClick={(e) => scrollToSection(e, 'user-dashboard')}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-ping" />
-              <span>My Trips</span>
-            </a>
+          {currentUser ? (
+            <>
+              <a 
+                href="#trip-splitter" 
+                className="text-[#C6FF3D] hover:text-[#b5f422] transition-colors font-semibold flex items-center gap-1.5 cursor-pointer"
+                onClick={(e) => scrollToSection(e, 'trip-splitter')}
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Split a Bill</span>
+              </a>
+              <a 
+                href="#user-dashboard" 
+                className="px-2.5 py-1 rounded-lg bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/30 font-bold hover:bg-[#C6FF3D]/20 transition-colors flex items-center gap-1.5 cursor-pointer text-xs"
+                onClick={(e) => scrollToSection(e, 'user-dashboard')}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-ping" />
+                <span>My Trips</span>
+              </a>
+              <button 
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenAIChat) onOpenAIChat();
+                }}
+                className="hover:text-[#C6FF3D] transition-colors flex items-center gap-1.5 cursor-pointer text-sm text-white/80"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-pulse" />
+                <span>AI Assistant</span>
+              </button>
+              <button 
+                type="button"
+                className="hover:text-white transition-colors cursor-pointer text-sm font-medium"
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenHowItWorks) onOpenHowItWorks();
+                }}
+              >
+                How it works
+              </button>
+              <a 
+                href="#features" 
+                className="hover:text-white transition-colors cursor-pointer"
+                onClick={(e) => scrollToSection(e, 'features')}
+              >
+                Features
+              </a>
+              <a 
+                href="#trust" 
+                className="hover:text-white transition-colors cursor-pointer"
+                onClick={(e) => scrollToSection(e, 'trust')}
+              >
+                Security
+              </a>
+            </>
+          ) : (
+            <>
+              <button 
+                type="button"
+                className="hover:text-white transition-colors cursor-pointer text-sm font-medium text-white/90"
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenHowItWorks) onOpenHowItWorks();
+                }}
+              >
+                How it works
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenAIChat) onOpenAIChat();
+                }}
+                className="hover:text-[#C6FF3D] transition-colors flex items-center gap-1.5 cursor-pointer text-sm text-white/80"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-pulse" />
+                <span>AI Assistant</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenAuth) onOpenAuth();
+                }}
+                className="text-[#C6FF3D] hover:text-[#b5f422] transition-colors font-semibold flex items-center gap-1.5 cursor-pointer text-sm"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Split a Bill</span>
+              </button>
+            </>
           )}
-          <button 
-            type="button"
-            onClick={() => {
-              sound.playClick();
-              if (onOpenAIChat) onOpenAIChat();
-            }}
-            className="hover:text-[#C6FF3D] transition-colors flex items-center gap-1.5 cursor-pointer text-sm text-white/80"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-pulse" />
-            <span>AI Assistant</span>
-          </button>
-          <button 
-            type="button"
-            className="hover:text-white transition-colors cursor-pointer text-sm font-medium"
-            onClick={() => {
-              sound.playClick();
-              closeMobileMenu();
-              if (onOpenHowItWorks) {
-                onOpenHowItWorks();
-              } else {
-                const el = document.getElementById('how-it-works');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            }}
-          >
-            How it works
-          </button>
-          <a 
-            href="#problem" 
-            className="hover:text-white transition-colors cursor-pointer"
-            onClick={(e) => scrollToSection(e, 'problem')}
-          >
-            Why
-          </a>
-          <a 
-            href="#features" 
-            className="hover:text-white transition-colors cursor-pointer"
-            onClick={(e) => scrollToSection(e, 'features')}
-          >
-            Features
-          </a>
-          <a 
-            href="#trust" 
-            className="hover:text-white transition-colors cursor-pointer"
-            onClick={(e) => scrollToSection(e, 'trust')}
-          >
-            Security
-          </a>
         </nav>
 
         {/* Right Actions: Auth, Waitlist, and Mobile Menu Hamburger */}
@@ -176,11 +193,15 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
             onClick={() => {
               sound.playClick();
               closeMobileMenu();
-              if (onOpenWaitlist) onOpenWaitlist();
+              if (currentUser) {
+                scrollToSection(null, 'trip-splitter');
+              } else {
+                if (onOpenAuth) onOpenAuth();
+              }
             }}
             className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5 active:scale-95 shadow-md shadow-[#C6FF3D]/10 cursor-pointer font-['Space_Grotesk'] shrink-0"
           >
-            <span>Join waitlist</span>
+            <span>{currentUser ? 'New Split' : 'Get Started Free'}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
 
@@ -204,17 +225,22 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
       {mobileMenuOpen && (
         <div className="md:hidden px-4 pt-3 pb-6 border-t border-white/10 bg-[#0B0C16] animate-in slide-in-from-top-2 duration-200">
           <nav className="flex flex-col space-y-3 pt-2 text-sm font-medium">
-            <a 
-              href="#create-split" 
-              className="p-2.5 rounded-xl bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/20 font-bold flex items-center gap-2"
+            <button 
+              type="button"
+              className="p-2.5 rounded-xl bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/20 font-bold flex items-center gap-2 text-left cursor-pointer"
               onClick={() => {
                 sound.playClick();
                 closeMobileMenu();
+                if (currentUser) {
+                  scrollToSection(null, 'trip-splitter');
+                } else {
+                  if (onOpenAuth) onOpenAuth();
+                }
               }}
             >
               <PlusCircle className="w-4 h-4" />
-              <span>Create Bill Split</span>
-            </a>
+              <span>{currentUser ? 'Create Bill Split' : 'Get Started / Split a Bill'}</span>
+            </button>
 
             {currentUser && (
               <>
@@ -276,29 +302,33 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/30">Demo</span>
             </button>
 
-            <a 
-              href="#problem" 
-              className="p-2 text-white/70 hover:text-white cursor-pointer"
-              onClick={(e) => scrollToSection(e, 'problem')}
-            >
-              The Problem &amp; Why SplitPay
-            </a>
+            {currentUser && (
+              <>
+                <a 
+                  href="#problem" 
+                  className="p-2 text-white/70 hover:text-white cursor-pointer"
+                  onClick={(e) => scrollToSection(e, 'problem')}
+                >
+                  The Problem &amp; Why SplitPay
+                </a>
 
-            <a 
-              href="#features" 
-              className="p-2 text-white/70 hover:text-white cursor-pointer"
-              onClick={(e) => scrollToSection(e, 'features')}
-            >
-              Features
-            </a>
+                <a 
+                  href="#features" 
+                  className="p-2 text-white/70 hover:text-white cursor-pointer"
+                  onClick={(e) => scrollToSection(e, 'features')}
+                >
+                  Features
+                </a>
 
-            <a 
-              href="#trust" 
-              className="p-2 text-white/70 hover:text-white cursor-pointer"
-              onClick={(e) => scrollToSection(e, 'trust')}
-            >
-              Security &amp; Razorpay
-            </a>
+                <a 
+                  href="#trust" 
+                  className="p-2 text-white/70 hover:text-white cursor-pointer"
+                  onClick={(e) => scrollToSection(e, 'trust')}
+                >
+                  Security &amp; Razorpay
+                </a>
+              </>
+            )}
 
             {!currentUser && (
               <button
@@ -308,7 +338,7 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
                   closeMobileMenu();
                   onOpenAuth();
                 }}
-                className="mt-2 p-2.5 rounded-xl bg-white/10 text-white text-xs font-mono font-bold flex items-center justify-center gap-1.5"
+                className="mt-2 p-2.5 rounded-xl bg-white/10 text-white text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <User className="w-3.5 h-3.5 text-[#C6FF3D]" />
                 <span>Log In / Sign Up</span>

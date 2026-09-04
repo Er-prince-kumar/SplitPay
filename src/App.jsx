@@ -116,28 +116,23 @@ function App() {
           <TrustRazorpay />
         </div>
       ) : (
-        /* Public Visitor Experience: Marketing Landing Page */
-        <>
+        /* Public Visitor Experience: Clean Single-Screen Hero Experience */
+        <div className="min-h-screen flex flex-col justify-between pt-16">
           <Hero3D 
-            onOpenWaitlist={scrollToWaitlist} 
-            onOpenDemo={scrollToSplitter}
-            onOpenHowItWorks={() => setIsHowItWorksOpen(true)}
-          />
-          <ProblemSection />
-          <HowItWorks3D />
-          <TripSplitterSection 
-            currentUser={currentUser} 
             onOpenAuth={() => setIsAuthOpen(true)}
-            externalTripData={appliedAITripData}
+            onOpenHowItWorks={() => setIsHowItWorksOpen(true)}
+            onOpenDemo={() => setIsAuthOpen(true)}
           />
-          <FeaturesGrid />
-          <TrustRazorpay />
-          <WaitlistSection />
-        </>
+          <footer className="py-3 px-4 border-t border-white/10 text-center text-xs text-white/40 font-mono">
+            &copy; {new Date().getFullYear()} SplitPay &bull; Fast, simple UPI bill splitting for campus &amp; trips.
+          </footer>
+        </div>
       )}
 
-      {/* Footer */}
-      <Footer onOpenHowItWorks={() => setIsHowItWorksOpen(true)} />
+      {/* Footer (Rendered when logged in) */}
+      {currentUser && (
+        <Footer onOpenHowItWorks={() => setIsHowItWorksOpen(true)} />
+      )}
 
       {/* Interactive How It Works Walkthrough Modal */}
       <HowItWorksModal 
