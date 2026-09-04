@@ -6,6 +6,7 @@ import {
   Lock, 
   School, 
   Smartphone, 
+  Phone,
   ArrowRight, 
   ArrowLeft,
   CheckCircle2, 
@@ -40,6 +41,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     college: campuses[0],
@@ -73,21 +75,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setErrorMessage('');
     setSuccessMessage('');
 
-    const cleanIdentifier = formData.email.trim().toLowerCase();
     const cleanPassword = formData.password.trim();
-
-    if (!cleanIdentifier) {
-      setErrorMessage("Please enter your registered email or mobile number.");
-      return;
-    }
-
-    if (!cleanPassword) {
-      setErrorMessage("Please enter your password.");
-      return;
-    }
-
-    setLoading(true);
-    sound.playClick();
 
     // Fetch existing registered accounts database
     let registeredUsers = [];
@@ -100,51 +88,69 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
       registeredUsers = [];
     }
 
-    setTimeout(() => {
-      setLoading(false);
+    // Ensure currently active user is present in registered database
+    try {
+      const activeUser = localStorage.getItem('splitpay_user');
+      if (activeUser) {
+        const parsed = JSON.parse(activeUser);
+        if (parsed && (parsed.email || parsed.phone)) {
+          const exists = registeredUsers.some(u => 
+            (u.email && parsed.email && u.email.toLowerCase() === parsed.email.toLowerCase()) ||
+            (u.phone && parsed.phone && u.phone.replace(/\D/g, '') === parsed.phone.replace(/\D/g, ''))
+          );
+          if (!exists) {
+            registeredUsers.push(parsed);
+            localStorage.setItem('splitpay_registered_users', JSON.stringify(registeredUsers));
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
 
-      // ==========================================
-      // 1. SIGN IN (LOGIN) FLOW
-      // ==========================================
-      if (authTab === 'login') {
-        const matchedUser = registeredUsers.find(u => 
-          (u.email && u.email.toLowerCase() === cleanIdentifier) ||
-          (u.phone && u.phone.replace(/[\s+-]/g, '') === cleanIdentifier.replace(/[\s+-]/g, ''))
-        );
+    // ==========================================
+    // 1. SIGN IN (LOGIN) FLOW
+    // ==========================================
+    if (authTab === 'login') {
+      const identifier = formData.email.trim();
+      if (!identifier) {
+        setErrorMessage("Please enter your registered email address or mobile number.");
+        return;
+      }
+
+      if (!cleanPassword) {
+        setErrorMessage("Please enter your password.");
+        return;
+      }
+
+      setLoading(true);
+      sound.playClick();
+
+      setTimeout(() => {
+        setLoading(false);
+
+        const isEmailInput = identifier.includes('@');
+        const cleanLoginEmail = identifier.toLowerCase();
+        const cleanLoginPhone = identifier.replace(/[\s+-]/g, '');
+
+        // Search user by email OR mobile number
+        const matchedUser = registeredUsers.find(u => {
+          const userEmail = (u.email || '').toLowerCase().trim();
+          const userPhone = (u.phone || '').replace(/[\s+-]/g, '').trim();
+
+          if (isEmailInput && userEmail === cleanLoginEmail) return true;
+          if (!isEmailInput && cleanLoginPhone.length >= 7) {
+            if (userPhone === cleanLoginPhone) return true;
+            if (userPhone.endsWith(cleanLoginPhone) || cleanLoginPhone.endsWith(userPhone)) return true;
+          }
+          if (userEmail === cleanLoginEmail) return true;
+          if (userPhone && cleanLoginPhone && userPhone === cleanLoginPhone) return true;
+          return false;
+        });
 
         if (!matchedUser) {
-          // Seamless auto-provisioning so user is never locked out
-          const isEmail = cleanIdentifier.includes('@');
-          const autoName = isEmail 
-            ? cleanIdentifier.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) 
-            : 'Campus Member';
-
-          const autoUser = {
-            name: autoName || 'Prince Kumar',
-            email: isEmail ? cleanIdentifier : `${cleanIdentifier}@campus.splitpay`,
-            phone: !isEmail ? cleanIdentifier : '9876543210',
-            password: cleanPassword,
-            college: campuses[0],
-            upiId: `${cleanIdentifier.replace(/[^a-zA-Z0-9]/g, '')}@upi`,
-            roomNo: 'Hostel BH-4, Room 302',
-            avatar: '👑',
-            createdAt: new Date().toISOString()
-          };
-
-          registeredUsers.push(autoUser);
-          localStorage.setItem('splitpay_registered_users', JSON.stringify(registeredUsers));
-          localStorage.setItem('splitpay_user', JSON.stringify(autoUser));
-          
-          sound.playUpiSuccess();
-          confetti({
-            particleCount: 60,
-            spread: 60,
-            origin: { y: 0.6 },
-            colors: ['#C6FF3D', '#0082FB', '#FFFFFF']
-          });
-
-          onLoginSuccess(autoUser);
-          onClose();
+          sound.playHover();
+          setErrorMessage(`No account found with ${isEmailInput ? 'email' : 'mobile number'} "${identifier}". Please check or click "Create Account".`);
           return;
         }
 
@@ -168,42 +174,68 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
         onLoginSuccess(matchedUser);
         onClose();
+      }, 350);
+      return;
+    }
+
+    // ==========================================
+    // 2. CREATE ACCOUNT (SIGN UP) FLOW
+    // ==========================================
+    if (authTab === 'signup') {
+      const cleanName = formData.name.trim();
+      const cleanEmail = formData.email.trim().toLowerCase();
+      const cleanPhone = formData.phone.trim();
+      const cleanPhoneDigits = cleanPhone.replace(/[\s+-]/g, '');
+
+      if (!cleanName) {
+        setErrorMessage("Please enter your full name.");
         return;
       }
 
-      // ==========================================
-      // 2. CREATE ACCOUNT (SIGN UP) FLOW
-      // ==========================================
-      if (authTab === 'signup') {
-        if (!formData.name.trim()) {
-          setErrorMessage("Please enter your full name.");
-          return;
+      if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+        setErrorMessage("Please enter a valid email address (e.g. prince@lpu.in or name@gmail.com).");
+        return;
+      }
+
+      if (!cleanPhoneDigits || cleanPhoneDigits.length < 10) {
+        setErrorMessage("Please enter a valid 10-digit mobile number.");
+        return;
+      }
+
+      if (cleanPassword.length < 4) {
+        setErrorMessage("Password must be at least 4 characters long.");
+        return;
+      }
+
+      // Check if email or phone is already registered
+      const existingUser = registeredUsers.find(u => {
+        const userEmail = (u.email || '').toLowerCase().trim();
+        const userPhone = (u.phone || '').replace(/[\s+-]/g, '').trim();
+        return (userEmail === cleanEmail) || (userPhone && userPhone === cleanPhoneDigits);
+      });
+
+      if (existingUser) {
+        if ((existingUser.email || '').toLowerCase().trim() === cleanEmail) {
+          setErrorMessage(`An account already exists with email "${cleanEmail}". Please sign in or reset password.`);
+        } else {
+          setErrorMessage(`An account already exists with mobile number "${cleanPhone}". Please sign in or reset password.`);
         }
+        return;
+      }
 
-        if (cleanPassword.length < 4) {
-          setErrorMessage("Password must be at least 4 characters long.");
-          return;
-        }
+      setLoading(true);
+      sound.playClick();
 
-        // Check if email or phone already registered
-        const existingUser = registeredUsers.find(u => 
-          (u.email && u.email.toLowerCase() === cleanIdentifier) ||
-          (u.phone && u.phone.replace(/[\s+-]/g, '') === cleanIdentifier.replace(/[\s+-]/g, ''))
-        );
+      setTimeout(() => {
+        setLoading(false);
 
-        if (existingUser) {
-          setErrorMessage("An account already exists with this email/phone! Please sign in or reset your password.");
-          return;
-        }
-
-        const isEmail = cleanIdentifier.includes('@');
         const newUser = {
-          name: formData.name.trim(),
-          email: isEmail ? cleanIdentifier : `${cleanIdentifier}@campus.splitpay`,
-          phone: !isEmail ? cleanIdentifier : '9876543210',
+          name: cleanName,
+          email: cleanEmail,
+          phone: cleanPhone,
           password: cleanPassword,
           college: formData.college,
-          upiId: formData.upiId.trim() || `${formData.name.trim().toLowerCase().replace(/\s+/g, '')}@upi`,
+          upiId: formData.upiId.trim() || `${cleanPhoneDigits}@upi` || `${cleanName.toLowerCase().replace(/\s+/g, '')}@upi`,
           roomNo: 'Hostel BH-4, Room 302',
           avatar: '👑',
           createdAt: new Date().toISOString()
@@ -223,29 +255,53 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
         onLoginSuccess(newUser);
         onClose();
+      }, 350);
+      return;
+    }
+
+    // ==========================================
+    // 3. DEDICATED FORGOT PASSWORD FLOW
+    // ==========================================
+    if (authTab === 'forgot') {
+      const identifier = formData.email.trim();
+      if (!identifier) {
+        setErrorMessage("Please enter your registered email or mobile number.");
         return;
       }
 
-      // ==========================================
-      // 3. DEDICATED FORGOT PASSWORD FLOW
-      // ==========================================
-      if (authTab === 'forgot') {
-        if (cleanPassword.length < 4) {
-          setErrorMessage("New password must be at least 4 characters long.");
-          return;
-        }
+      if (cleanPassword.length < 4) {
+        setErrorMessage("New password must be at least 4 characters long.");
+        return;
+      }
 
-        if (cleanPassword !== formData.confirmPassword.trim()) {
-          setErrorMessage("Password and Confirm Password do not match! Please check again.");
-          return;
-        }
+      if (cleanPassword !== formData.confirmPassword.trim()) {
+        setErrorMessage("Password and Confirm Password do not match! Please check again.");
+        return;
+      }
+
+      setLoading(true);
+      sound.playClick();
+
+      setTimeout(() => {
+        setLoading(false);
+
+        const isEmailInput = identifier.includes('@');
+        const cleanLoginEmail = identifier.toLowerCase();
+        const cleanLoginPhone = identifier.replace(/[\s+-]/g, '');
 
         let found = false;
         let updatedUser = null;
 
         const updatedList = registeredUsers.map(u => {
-          if ((u.email && u.email.toLowerCase() === cleanIdentifier) || 
-              (u.phone && u.phone.replace(/[\s+-]/g, '') === cleanIdentifier.replace(/[\s+-]/g, ''))) {
+          const userEmail = (u.email || '').toLowerCase().trim();
+          const userPhone = (u.phone || '').replace(/[\s+-]/g, '').trim();
+
+          const isMatch = (isEmailInput && userEmail === cleanLoginEmail) ||
+                          (!isEmailInput && cleanLoginPhone.length >= 7 && (userPhone === cleanLoginPhone || userPhone.endsWith(cleanLoginPhone) || cleanLoginPhone.endsWith(userPhone))) ||
+                          (userEmail === cleanLoginEmail) ||
+                          (userPhone && cleanLoginPhone && userPhone === cleanLoginPhone);
+
+          if (isMatch) {
             found = true;
             updatedUser = { ...u, password: cleanPassword };
             return updatedUser;
@@ -254,15 +310,14 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         });
 
         if (!found) {
-          // If user didn't exist in cache, create/register them with this new password
-          const isEmail = cleanIdentifier.includes('@');
+          // If user wasn't in registered list, create the account with this password
           updatedUser = {
-            name: isEmail ? cleanIdentifier.split('@')[0] : 'Campus Member',
-            email: isEmail ? cleanIdentifier : `${cleanIdentifier}@campus.splitpay`,
-            phone: !isEmail ? cleanIdentifier : '9876543210',
+            name: isEmailInput ? identifier.split('@')[0].replace(/[._]/g, ' ') : 'Campus Member',
+            email: isEmailInput ? cleanLoginEmail : `${cleanLoginPhone}@campus.splitpay`,
+            phone: !isEmailInput ? identifier : '9876543210',
             password: cleanPassword,
             college: campuses[0],
-            upiId: `${cleanIdentifier.replace(/[^a-zA-Z0-9]/g, '')}@upi`,
+            upiId: `${identifier.replace(/[^a-zA-Z0-9]/g, '')}@upi`,
             roomNo: 'Hostel BH-4, Room 302',
             avatar: '👑',
             createdAt: new Date().toISOString()
@@ -283,9 +338,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
         onLoginSuccess(updatedUser);
         onClose();
-      }
-
-    }, 350);
+      }, 350);
+      return;
+    }
   };
 
   return (
@@ -319,9 +374,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 {authTab === 'forgot' && "Reset Password"}
               </h3>
               <p className="text-[11px] font-mono text-white/50">
-                {authTab === 'login' && "Sign in to your SplitPay account"}
-                {authTab === 'signup' && "Register to manage and split campus bills"}
-                {authTab === 'forgot' && "Enter your details to create a new password"}
+                {authTab === 'login' && "Login with either your email or mobile number"}
+                {authTab === 'signup' && "Register with your email & mobile number"}
+                {authTab === 'forgot' && "Enter your registered email or phone to reset"}
               </p>
             </div>
           </div>
@@ -406,12 +461,15 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   type="text"
                   name="email"
                   required
-                  placeholder="e.g. prince@lpu.in or 9876543210"
+                  placeholder="Enter registered email or mobile number"
                   value={formData.email}
                   onChange={handleChange}
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
                 />
               </div>
+              <span className="text-[10px] text-white/40 font-mono block">
+                Sign in with either your registered email or 10-digit mobile
+              </span>
             </div>
 
             {/* Password with Eye Toggle & Reset Button */}
@@ -509,16 +567,34 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             </div>
 
             {/* Email or Phone */}
+            {/* Email Address */}
             <div className="space-y-1">
-              <label className="text-white/60 text-[11px]">EMAIL OR MOBILE NUMBER *</label>
+              <label className="text-white/60 text-[11px]">EMAIL ADDRESS *</label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
                 <input
-                  type="text"
+                  type="email"
                   name="email"
                   required
-                  placeholder="e.g. prince@lpu.in or 9876543210"
+                  placeholder="e.g. prince@lpu.in or name@gmail.com"
                   value={formData.email}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Mobile Number */}
+            <div className="space-y-1">
+              <label className="text-white/60 text-[11px]">MOBILE NUMBER *</label>
+              <div className="relative">
+                <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+                <input
+                  type="tel"
+                  name="phone"
+                  required
+                  placeholder="e.g. 9876543210 (10-digit mobile)"
+                  value={formData.phone}
                   onChange={handleChange}
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
                 />
@@ -639,12 +715,15 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   type="text"
                   name="email"
                   required
-                  placeholder="e.g. prince@lpu.in or 9876543210"
+                  placeholder="Enter registered email or 10-digit mobile"
                   value={formData.email}
                   onChange={handleChange}
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
                 />
               </div>
+              <span className="text-[10px] text-white/40 font-mono block">
+                Enter either your registered email or phone to update password
+              </span>
             </div>
 
             {/* 1. Enter New Password */}

@@ -103,9 +103,19 @@ const ProfileModal = ({ isOpen, onClose, currentUser, onUpdateProfile }) => {
     try {
       const storedUsers = localStorage.getItem('splitpay_registered_users');
       const registeredList = storedUsers ? JSON.parse(storedUsers) : [];
-      const updatedList = registeredList.map(u => 
-        u.email === updatedUser.email ? { ...u, ...updatedUser } : u
-      );
+      let found = false;
+      const updatedList = registeredList.map(u => {
+        const match = (u.email && updatedUser.email && u.email.toLowerCase() === updatedUser.email.toLowerCase()) ||
+                      (u.phone && updatedUser.phone && u.phone.replace(/\D/g, '') === updatedUser.phone.replace(/\D/g, ''));
+        if (match) {
+          found = true;
+          return { ...u, ...updatedUser };
+        }
+        return u;
+      });
+      if (!found) {
+        updatedList.push(updatedUser);
+      }
       localStorage.setItem('splitpay_registered_users', JSON.stringify(updatedList));
     } catch (err) {
       console.warn("Could not sync registered users", err);
