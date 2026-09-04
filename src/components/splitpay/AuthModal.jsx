@@ -9,7 +9,6 @@ import {
   ArrowRight, 
   CheckCircle2, 
   AlertCircle,
-  Zap, 
   ShieldCheck,
   Eye,
   EyeOff,
@@ -53,31 +52,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
     setErrorMessage('');
     setShowResetOption(false);
-  };
-
-  const handleQuickLogin = (demoProfile) => {
-    sound.playClick();
-    localStorage.setItem('splitpay_user', JSON.stringify(demoProfile));
-    
-    try {
-      const stored = localStorage.getItem('splitpay_registered_users');
-      const list = stored ? JSON.parse(stored) : [];
-      if (!list.some(u => u.email === demoProfile.email)) {
-        list.push(demoProfile);
-        localStorage.setItem('splitpay_registered_users', JSON.stringify(list));
-      }
-    } catch (err) {}
-
-    sound.playUpiSuccess();
-    confetti({
-      particleCount: 70,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#C6FF3D', '#0082FB', '#25D366']
-    });
-
-    onLoginSuccess(demoProfile);
-    onClose();
   };
 
   const handleSubmit = (e) => {
@@ -354,52 +328,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           >
             Create Account
           </button>
-        </div>
-
-        {/* 1-Tap Quick Demo Login Options */}
-        <div className="space-y-1.5 mb-4">
-          <label className="text-[10px] font-mono text-white/40 block text-left">
-            QUICK 1-TAP LOGIN (NO TYPING NEEDED):
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin({
-                name: 'Prince Kumar',
-                email: 'prince@lpu.in',
-                password: 'password123',
-                college: 'Lovely Professional University (LPU)',
-                upiId: 'prince@oksbi',
-                phone: '9876543210',
-                roomNo: 'Hostel BH-4, Room 302',
-                avatar: '👑',
-                createdAt: new Date().toISOString()
-              })}
-              className="py-2 px-2.5 rounded-xl bg-[#C6FF3D]/10 hover:bg-[#C6FF3D]/20 border border-[#C6FF3D]/30 hover:border-[#C6FF3D] text-[#C6FF3D] font-bold text-[11px] font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-left"
-            >
-              <Zap className="w-3.5 h-3.5 shrink-0 fill-current" />
-              <span className="truncate">Prince Kumar (LPU)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickLogin({
-                name: 'Ananya Sharma',
-                email: 'ananya@du.ac.in',
-                password: 'password123',
-                college: 'Delhi University (DU)',
-                upiId: 'ananya@paytm',
-                phone: '9811223344',
-                roomNo: 'Kaveri Hostel, Room 104',
-                avatar: '👩‍🎨',
-                createdAt: new Date().toISOString()
-              })}
-              className="py-2 px-2.5 rounded-xl bg-[#0082FB]/10 hover:bg-[#0082FB]/20 border border-[#0082FB]/30 hover:border-[#0082FB] text-[#0082FB] font-bold text-[11px] font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-left"
-            >
-              <Zap className="w-3.5 h-3.5 shrink-0 fill-current" />
-              <span className="truncate">Ananya (DU)</span>
-            </button>
-          </div>
         </div>
 
         {/* Error Alert Box */}
