@@ -53,8 +53,8 @@ const Hero3D = ({ onOpenWaitlist }) => {
   };
 
   return (
-    <section className="relative pt-28 sm:pt-36 pb-16 sm:pb-24 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 overflow-hidden w-full">
-      <div className="w-full max-w-[1440px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
+    <section className="relative pt-28 sm:pt-36 pb-16 sm:pb-24 px-3 sm:px-5 md:px-6 lg:px-8 overflow-hidden w-full">
+      <div className="w-full max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
         
         {/* Left: Value Proposition */}
         <div className="lg:col-span-6 space-y-6 text-left">

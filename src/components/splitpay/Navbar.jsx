@@ -24,7 +24,7 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
         ? 'py-3.5 bg-[#0B0C16]/95 backdrop-blur-md border-b border-white/10 shadow-lg' 
         : 'py-5 bg-transparent'
     }`}>
-      <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 flex items-center justify-between">
+      <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-5 md:px-6 lg:px-8 flex items-center justify-between">
         
         {/* Brand Logo */}
         <a 

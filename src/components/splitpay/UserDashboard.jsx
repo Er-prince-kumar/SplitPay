@@ -233,13 +233,13 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
   });
 
   return (
-    <section id="user-dashboard" className="py-12 sm:py-16 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 bg-[#0B0C18] border-b border-white/10 w-full relative">
+    <section id="user-dashboard" className="py-10 sm:py-14 px-3 sm:px-5 md:px-6 lg:px-8 bg-[#0B0C18] border-b border-white/10 w-full relative">
       
       {/* Background Ambient Glow */}
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#C6FF3D]/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#0082FB]/5 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-[1440px] mx-auto space-y-8 sm:space-y-10 relative z-10">
+      <div className="w-full max-w-[1600px] mx-auto space-y-8 sm:space-y-10 relative z-10">
         
         {/* Top Profile & Welcome Banner */}
         <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#14152A] via-[#101124] to-[#14152A] border border-white/15 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">

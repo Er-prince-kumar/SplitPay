@@ -3,8 +3,8 @@ import { ShieldCheck, Lock, CheckCircle2, Server, Award } from 'lucide-react';
 
 const TrustRazorpay = () => {
   return (
-    <section id="trust" className="py-20 sm:py-24 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 bg-[#0D0E1C] border-t border-white/5 w-full scroll-mt-20">
-      <div className="w-full max-w-[1440px] mx-auto">
+    <section id="trust" className="py-16 sm:py-20 px-3 sm:px-5 md:px-6 lg:px-8 bg-[#0D0E1C] border-t border-white/5 w-full scroll-mt-20">
+      <div className="w-full max-w-[1600px] mx-auto">
         
         <div className="p-8 sm:p-12 rounded-3xl bg-[#121324] border border-white/10 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           

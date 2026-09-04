@@ -25,8 +25,8 @@ const HowItWorks3D = () => {
   ];
 
   return (
-    <section id="how-it-works" className="py-20 sm:py-24 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 bg-[#0D0E1C] border-t border-white/5 w-full scroll-mt-20">
-      <div className="w-full max-w-[1440px] mx-auto space-y-12">
+    <section id="how-it-works" className="py-16 sm:py-20 px-3 sm:px-5 md:px-6 lg:px-8 bg-[#0D0E1C] border-t border-white/5 w-full scroll-mt-20">
+      <div className="w-full max-w-[1600px] mx-auto space-y-12">
         
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto space-y-3">

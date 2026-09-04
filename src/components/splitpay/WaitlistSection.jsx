@@ -80,8 +80,8 @@ const WaitlistSection = () => {
   };
 
   return (
-    <section id="waitlist" className="py-20 sm:py-24 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 bg-[#0B0C16] border-t border-white/5 w-full scroll-mt-20">
-      <div className="max-w-4xl mx-auto w-full">
+    <section id="waitlist" className="py-16 sm:py-20 px-3 sm:px-5 md:px-6 lg:px-8 bg-[#0B0C16] border-t border-white/5 w-full scroll-mt-20">
+      <div className="max-w-5xl mx-auto w-full">
         
         {!submitted ? (
           <div className="p-6 sm:p-10 rounded-2xl bg-[#121324] border border-white/10 text-center space-y-7">
