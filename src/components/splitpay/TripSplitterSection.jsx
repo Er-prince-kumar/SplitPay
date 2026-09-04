@@ -29,16 +29,10 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   // Helper to load initial saved trip from localStorage
   const getInitialTrip = () => {
     try {
-      const saved = localStorage.getItem('splitpay_active_trip_v2');
-      if (saved) return JSON.parse(saved);
-
-      // Clean migration from old storage: ensure friends start as pending unless confirmed
-      const oldSaved = localStorage.getItem('splitpay_active_trip');
-      if (oldSaved) {
-        const parsed = JSON.parse(oldSaved);
-        if (parsed && Array.isArray(parsed.members)) {
-          parsed.members = parsed.members.map(m => m.isHost ? m : { ...m, status: 'pending' });
-          localStorage.setItem('splitpay_active_trip_v2', JSON.stringify(parsed));
+      const saved = localStorage.getItem('splitpay_active_trip_v3');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.tripName && parsed.tripName !== 'Goa Beach Shack & Cabs' && parsed.totalAmount !== 7400) {
           return parsed;
         }
       }
@@ -50,10 +44,16 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   const initialData = getInitialTrip();
 
-  const [tripName, setTripName] = useState(initialData?.tripName || 'Goa Beach Shack & Cabs');
-  const [totalAmount, setTotalAmount] = useState(initialData?.totalAmount || 7400);
-  const [hostName, setHostName] = useState(currentUser?.name || initialData?.hostName || 'Prince Kumar');
-  const [hostUpi, setHostUpi] = useState(currentUser?.upiId || initialData?.hostUpi || 'prince@oksbi');
+  const [tripName, setTripName] = useState(initialData?.tripName || '');
+  const [totalAmount, setTotalAmount] = useState(
+    initialData?.totalAmount !== undefined && initialData?.totalAmount !== 7400 ? initialData.totalAmount : ''
+  );
+  const [hostName, setHostName] = useState(
+    currentUser?.name || (initialData?.hostName && initialData.hostName !== 'Prince Kumar' ? initialData.hostName : '')
+  );
+  const [hostUpi, setHostUpi] = useState(
+    currentUser?.upiId || (initialData?.hostUpi && initialData.hostUpi !== 'prince@oksbi' ? initialData.hostUpi : '')
+  );
 
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberPhone, setNewMemberPhone] = useState('');
@@ -71,16 +71,40 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     { name: '🛒 WiFi & Groceries', amount: 3200, tripName: 'Flatmates WiFi & Groceries' }
   ];
 
-  const defaultMembers = [
-    { id: 1, name: currentUser?.name || 'Prince Kumar', phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
-    { id: 2, name: 'Rohit K.', phone: '9876512345', isHost: false, status: 'pending', avatar: '👨‍💻' },
-    { id: 3, name: 'Priya S.', phone: '9811223344', isHost: false, status: 'pending', avatar: '👩‍🎨' },
-    { id: 4, name: 'Aman M.', phone: '9899887766', isHost: false, status: 'pending', avatar: '🎒' }
-  ];
+  const getInitialMembers = () => {
+    if (initialData?.members && Array.isArray(initialData.members)) {
+      const hasOldDummy = initialData.members.some(m => m.name === 'Rohit K.' || m.name === 'Priya S.');
+      if (!hasOldDummy && initialData.members.length > 0) {
+        return initialData.members;
+      }
+    }
+    return [
+      {
+        id: 1,
+        name: currentUser?.name || 'You (Host)',
+        phone: currentUser?.phone || '',
+        isHost: true,
+        status: 'paid',
+        avatar: currentUser?.avatar || '👑'
+      }
+    ];
+  };
 
-  const [members, setMembers] = useState(
-    initialData?.members && initialData.members.length > 0 ? initialData.members : defaultMembers
-  );
+  const [members, setMembers] = useState(getInitialMembers);
+
+  // Clean up any old dummy storage keys
+  useEffect(() => {
+    try {
+      const old1 = localStorage.getItem('splitpay_active_trip_v2');
+      if (old1 && old1.includes('Goa Beach Shack')) {
+        localStorage.removeItem('splitpay_active_trip_v2');
+      }
+      const old2 = localStorage.getItem('splitpay_active_trip');
+      if (old2 && old2.includes('Goa Beach Shack')) {
+        localStorage.removeItem('splitpay_active_trip');
+      }
+    } catch (e) {}
+  }, []);
 
   // Auto-persist active trip, members, and payment settlement status to localStorage on every change
   useEffect(() => {
@@ -93,8 +117,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
         members,
         updatedAt: new Date().toISOString()
       };
-      localStorage.setItem('splitpay_active_trip_v2', JSON.stringify(payload));
-      localStorage.setItem('splitpay_active_trip', JSON.stringify(payload));
+      localStorage.setItem('splitpay_active_trip_v3', JSON.stringify(payload));
     } catch (e) {
       console.warn("Could not save trip to localStorage", e);
     }
@@ -136,7 +159,8 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }
   }, [externalTripData]);
 
-  const perPersonShare = members.length > 0 ? Math.round(totalAmount / members.length) : 0;
+  const numAmount = Number(totalAmount) || 0;
+  const perPersonShare = members.length > 0 && numAmount > 0 ? Math.round(numAmount / members.length) : 0;
   const paidCount = members.filter(m => m.status === 'paid').length;
   const progressPercent = members.length > 0 ? Math.round((paidCount / members.length) * 100) : 0;
 
@@ -156,7 +180,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     const newMember = {
       id: Date.now(),
       name: newMemberName.trim(),
-      phone: newMemberPhone.trim() || '9876543210',
+      phone: newMemberPhone.trim() || '',
       isHost: false,
       status: 'pending',
       avatar: avatars[members.length % avatars.length]
@@ -169,10 +193,6 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   };
 
   const handleRemoveMember = (id) => {
-    if (members.length <= 2) {
-      alert("A split must have at least 2 members.");
-      return;
-    }
     sound.playClick();
     setMembers(prev => prev.filter(m => m.id !== id));
   };
@@ -270,7 +290,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     setCopiedLink(true);
 
     const pendingNames = members.filter(m => m.status === 'pending').map(m => m.name).join(', ');
-    const text = `*${tripName}*\nTotal: ₹${totalAmount.toLocaleString('en-IN')}\nPer Person: ₹${perPersonShare.toLocaleString('en-IN')}\nPay via UPI: ${hostUpi}\nPending from: ${pendingNames || 'None (All Settled!)'}`;
+    const text = `*${tripName || 'Group Split'}*\nTotal: ₹${numAmount > 0 ? numAmount.toLocaleString('en-IN') : '00'}\nPer Person: ₹${perPersonShare > 0 ? perPersonShare.toLocaleString('en-IN') : '00'}\nPay via UPI: ${hostUpi || 'Pending'}\nPending from: ${pendingNames || 'None (All Settled!)'}`;
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text);
@@ -280,15 +300,21 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   const handleResetBill = () => {
     sound.playClick();
-    if (window.confirm("Reset this bill to default template? This will reset all member payments to pending.")) {
-      setTripName('Goa Beach Shack & Cabs');
-      setTotalAmount(7400);
+    if (window.confirm("Clear all bill details and start fresh?")) {
+      setTripName('');
+      setTotalAmount('');
+      setHostUpi(currentUser?.upiId || '');
       setMembers([
-        { id: 1, name: hostName, phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
-        { id: 2, name: 'Rohit K.', phone: '9876512345', isHost: false, status: 'pending', avatar: '👨‍💻' },
-        { id: 3, name: 'Priya S.', phone: '9811223344', isHost: false, status: 'pending', avatar: '👩‍🎨' },
-        { id: 4, name: 'Aman M.', phone: '9899887766', isHost: false, status: 'pending', avatar: '🎒' }
+        {
+          id: 1,
+          name: currentUser?.name || 'You (Host)',
+          phone: currentUser?.phone || '',
+          isHost: true,
+          status: 'paid',
+          avatar: currentUser?.avatar || '👑'
+        }
       ]);
+      localStorage.removeItem('splitpay_active_trip_v3');
       localStorage.removeItem('splitpay_active_trip_v2');
       localStorage.removeItem('splitpay_active_trip');
       sound.playUpiSuccess();
@@ -373,14 +399,14 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
             {/* Presets Chips */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-mono text-white/50 block">QUICK TEMPLATES (1-TAP FILL):</label>
+                <label className="text-xs font-mono text-white/50 block">QUICK TEMPLATES (OPTIONAL):</label>
                 <button
                   type="button"
                   onClick={handleResetBill}
                   className="text-[11px] font-mono text-white/40 hover:text-red-400 transition-colors cursor-pointer"
-                  title="Reset to default bill template"
+                  title="Clear all fields to blank"
                 >
-                  Reset Bill
+                  Clear Form (00)
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -405,7 +431,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                   type="text"
                   value={tripName}
                   onChange={(e) => setTripName(e.target.value)}
-                  placeholder="e.g. Goa Trip, Hostel Biryani"
+                  placeholder="Enter trip name (e.g. Goa Trip, Hostel Biryani)"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white text-sm focus:border-[#C6FF3D] focus:outline-none transition-colors font-medium"
                 />
               </div>
@@ -417,7 +443,8 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                   min="0"
                   step="50"
                   value={totalAmount}
-                  onChange={(e) => setTotalAmount(Math.max(0, Number(e.target.value)))}
+                  onChange={(e) => setTotalAmount(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                  placeholder="00"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white text-sm focus:border-[#C6FF3D] focus:outline-none transition-colors font-bold font-mono"
                 />
               </div>
@@ -430,7 +457,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                 type="text"
                 value={hostUpi}
                 onChange={(e) => setHostUpi(e.target.value)}
-                placeholder="e.g. name@okhdfcbank"
+                placeholder="Enter your UPI ID (e.g. name@okhdfcbank)"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white text-sm focus:border-[#C6FF3D] focus:outline-none transition-colors font-mono"
               />
             </div>
@@ -446,7 +473,9 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-[#C6FF3D] font-bold">₹{perPersonShare.toLocaleString('en-IN')} / person</span>
+                  <span className="text-[#C6FF3D] font-bold">
+                    ₹{perPersonShare > 0 ? perPersonShare.toLocaleString('en-IN') : '00'} / person
+                  </span>
                   
                   {members.some(m => m.status === 'paid') && (
                     <button
@@ -482,7 +511,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                         </div>
                         <div className="text-[11px] text-white/40 font-mono flex items-center gap-1">
                           <Phone className="w-2.5 h-2.5" />
-                          <span>{formatDisplayPhone(member.phone)}</span>
+                          <span>{member.phone ? formatDisplayPhone(member.phone) : 'No Phone'}</span>
                         </div>
                       </div>
                     </div>
@@ -556,6 +585,13 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                     </div>
                   </div>
                 ))}
+
+                {members.length <= 1 && (
+                  <div className="p-3.5 rounded-xl bg-white/[0.02] border border-dashed border-white/10 text-center space-y-1">
+                    <p className="text-xs text-white/60 font-medium">No friends added yet</p>
+                    <p className="text-[11px] text-white/40 font-mono">Use the form below to add friends to this split</p>
+                  </div>
+                )}
               </div>
 
               {/* Add Member Form */}
@@ -572,7 +608,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                   />
                   <input
                     type="tel"
-                    placeholder="WhatsApp No. (e.g. 9876543210)"
+                    placeholder="WhatsApp No. (Optional)"
                     value={newMemberPhone}
                     onChange={(e) => setNewMemberPhone(e.target.value)}
                     className="px-3 py-2 rounded-lg bg-[#0B0C16] border border-white/15 text-white text-xs focus:border-[#25D366] focus:outline-none font-mono"
@@ -611,14 +647,14 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono text-white/50">TOTAL EXPENSE</span>
                   <span className="text-xl font-black text-white font-['Space_Grotesk']">
-                    ₹{totalAmount.toLocaleString('en-IN')}
+                    ₹{numAmount > 0 ? numAmount.toLocaleString('en-IN') : '00'}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-white/5">
                   <span className="text-xs font-mono text-[#C6FF3D]">EACH PERSON OWES</span>
                   <span className="text-xl font-black text-[#C6FF3D] font-['Space_Grotesk']">
-                    ₹{perPersonShare.toLocaleString('en-IN')}
+                    ₹{perPersonShare > 0 ? perPersonShare.toLocaleString('en-IN') : '00'}
                   </span>
                 </div>
               </div>
@@ -724,7 +760,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                 Pay Bill Share
               </h3>
               <p className="text-xs text-white/60">
-                Paying for <strong className="text-white font-bold">{qrTargetMember?.name || 'Friend'}</strong> • ₹{perPersonShare.toLocaleString('en-IN')}
+                Paying for <strong className="text-white font-bold">{qrTargetMember?.name || 'Friend'}</strong> • ₹{perPersonShare > 0 ? perPersonShare.toLocaleString('en-IN') : '00'}
               </p>
             </div>
 
