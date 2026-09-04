@@ -216,33 +216,6 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     return () => clearTimeout(timer);
   }, [showQrModal, qrPaymentStatus, qrTargetMember]);
 
-  const handleToggleStatus = (id) => {
-    sound.playClick();
-    setMembers(prev => prev.map(m => {
-      if (m.id === id) {
-        const nextStatus = m.status === 'paid' ? 'pending' : 'paid';
-        if (nextStatus === 'paid') {
-          sound.playUpiSuccess();
-          confetti({
-            particleCount: 40,
-            spread: 60,
-            origin: { y: 0.6 },
-            colors: ['#C6FF3D', '#0082FB', '#25D366']
-          });
-          const refId = 'UPI' + Math.floor(100000 + Math.random() * 900000);
-          setPaymentToast({
-            name: m.name,
-            amount: perPersonShare,
-            ref: refId
-          });
-          setTimeout(() => setPaymentToast(null), 4500);
-        }
-        return { ...m, status: nextStatus };
-      }
-      return m;
-    }));
-  };
-
   const handleSendWhatsApp = (member) => {
     sound.playClick();
     const message = buildSplitWhatsAppMessage({
@@ -479,27 +452,25 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                         <span className="hidden sm:inline">WhatsApp</span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(member.id)}
-                        className={`px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                          member.status === 'paid'
-                            ? 'bg-[#C6FF3D]/15 text-[#C6FF3D] border border-[#C6FF3D]/30'
-                            : 'bg-amber-400/15 text-amber-400 border border-amber-400/30'
-                        }`}
-                      >
-                        {member.status === 'paid' ? (
-                          <>
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Paid</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="w-3 h-3" />
-                            <span>Pending</span>
-                          </>
-                        )}
-                      </button>
+                      {member.status === 'paid' ? (
+                        <span
+                          className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-[#C6FF3D]/15 text-[#C6FF3D] border border-[#C6FF3D]/30 select-none cursor-default shadow-sm"
+                          title="Payment verified via UPI"
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Paid</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenQrForMember(member)}
+                          className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-amber-400/15 hover:bg-amber-400/25 text-amber-400 border border-amber-400/30 transition-all cursor-pointer active:scale-95"
+                          title={`Payment pending for ${member.name}. Click to open UPI QR code & pay.`}
+                        >
+                          <Clock className="w-3 h-3" />
+                          <span>Pending</span>
+                        </button>
+                      )}
 
                       {!member.isHost && (
                         <button
