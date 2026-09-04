@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Zap, 
   ArrowRight, 
@@ -30,6 +30,23 @@ const WaitlistSection = () => {
   const [submitted, setSubmitted] = useState(false);
   const [waitlistNumber, setWaitlistNumber] = useState(412);
 
+  // Restore saved waitlist entry from localStorage if user already joined
+  useEffect(() => {
+    try {
+      const waitlist = JSON.parse(localStorage.getItem('splitpay_waitlist') || '[]');
+      if (waitlist.length > 0) {
+        const last = waitlist[waitlist.length - 1];
+        if (last && last.email) {
+          setName(last.name || '');
+          setEmail(last.email);
+          setCollege(last.college || campuses[0]);
+          setWaitlistNumber(last.number || 412);
+          setSubmitted(true);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!email || !email.includes('@')) {
@@ -41,6 +58,18 @@ const WaitlistSection = () => {
     const assignedNumber = Math.floor(400 + Math.random() * 50);
     setWaitlistNumber(assignedNumber);
     setSubmitted(true);
+
+    try {
+      const waitlist = JSON.parse(localStorage.getItem('splitpay_waitlist') || '[]');
+      waitlist.push({
+        name,
+        email,
+        college,
+        number: assignedNumber,
+        timestamp: new Date().toISOString()
+      });
+      localStorage.setItem('splitpay_waitlist', JSON.stringify(waitlist));
+    } catch (err) {}
 
     confetti({
       particleCount: 80,

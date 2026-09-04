@@ -24,10 +24,23 @@ import {
 } from '../../utils/whatsapp';
 
 const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
-  const [tripName, setTripName] = useState('Goa Beach Shack & Cabs');
-  const [totalAmount, setTotalAmount] = useState(7400);
-  const [hostName, setHostName] = useState(currentUser?.name || 'Prince Kumar');
-  const [hostUpi, setHostUpi] = useState(currentUser?.upiId || 'prince@oksbi');
+  // Helper to load initial saved trip from localStorage
+  const getInitialTrip = () => {
+    try {
+      const saved = localStorage.getItem('splitpay_active_trip');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Could not parse saved trip from localStorage", e);
+    }
+    return null;
+  };
+
+  const initialData = getInitialTrip();
+
+  const [tripName, setTripName] = useState(initialData?.tripName || 'Goa Beach Shack & Cabs');
+  const [totalAmount, setTotalAmount] = useState(initialData?.totalAmount || 7400);
+  const [hostName, setHostName] = useState(currentUser?.name || initialData?.hostName || 'Prince Kumar');
+  const [hostUpi, setHostUpi] = useState(currentUser?.upiId || initialData?.hostUpi || 'prince@oksbi');
 
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberPhone, setNewMemberPhone] = useState('');
@@ -44,12 +57,33 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     { name: '🛒 WiFi & Groceries', amount: 3200, tripName: 'Flatmates WiFi & Groceries' }
   ];
 
-  const [members, setMembers] = useState([
-    { id: 1, name: hostName, phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
+  const defaultMembers = [
+    { id: 1, name: currentUser?.name || 'Prince Kumar', phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
     { id: 2, name: 'Rohit K.', phone: '9876512345', isHost: false, status: 'paid', avatar: '👨‍💻' },
     { id: 3, name: 'Priya S.', phone: '9811223344', isHost: false, status: 'pending', avatar: '👩‍🎨' },
     { id: 4, name: 'Aman M.', phone: '9899887766', isHost: false, status: 'pending', avatar: '🎒' }
-  ]);
+  ];
+
+  const [members, setMembers] = useState(
+    initialData?.members && initialData.members.length > 0 ? initialData.members : defaultMembers
+  );
+
+  // Auto-persist active trip, members, and payment settlement status to localStorage on every change
+  useEffect(() => {
+    try {
+      const payload = {
+        tripName,
+        totalAmount,
+        hostName,
+        hostUpi,
+        members,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem('splitpay_active_trip', JSON.stringify(payload));
+    } catch (e) {
+      console.warn("Could not save trip to localStorage", e);
+    }
+  }, [tripName, totalAmount, hostName, hostUpi, members]);
 
   // Sync host name if user logs in
   useEffect(() => {
@@ -243,6 +277,22 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
+  const handleResetBill = () => {
+    sound.playClick();
+    if (window.confirm("Reset this bill to default template? This will clear saved changes for this bill.")) {
+      setTripName('Goa Beach Shack & Cabs');
+      setTotalAmount(7400);
+      setMembers([
+        { id: 1, name: hostName, phone: '9876543210', isHost: true, status: 'paid', avatar: '👑' },
+        { id: 2, name: 'Rohit K.', phone: '9876512345', isHost: false, status: 'paid', avatar: '👨‍💻' },
+        { id: 3, name: 'Priya S.', phone: '9811223344', isHost: false, status: 'pending', avatar: '👩‍🎨' },
+        { id: 4, name: 'Aman M.', phone: '9899887766', isHost: false, status: 'pending', avatar: '🎒' }
+      ]);
+      localStorage.removeItem('splitpay_active_trip');
+      sound.playUpiSuccess();
+    }
+  };
+
   return (
     <section id="trip-splitter" className="py-20 sm:py-24 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 bg-[#0D0E1C] border-t border-white/5 w-full scroll-mt-20">
       <div id="create-split" className="w-full max-w-[1440px] mx-auto space-y-10">
@@ -252,6 +302,11 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-white/70">
             <Users className="w-3.5 h-3.5 text-[#C6FF3D]" />
             <span>Bill Splitter & WhatsApp Dispatcher</span>
+            <span className="w-1 h-1 rounded-full bg-white/30" />
+            <span className="text-[#C6FF3D] flex items-center gap-1 font-bold">
+              <Check className="w-3 h-3" />
+              Auto-Saved
+            </span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-bold text-white font-['Space_Grotesk'] tracking-tight">
@@ -282,7 +337,17 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
             
             {/* Presets Chips */}
             <div className="space-y-2">
-              <label className="text-xs font-mono text-white/50 block">QUICK TEMPLATES (1-TAP FILL):</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-mono text-white/50 block">QUICK TEMPLATES (1-TAP FILL):</label>
+                <button
+                  type="button"
+                  onClick={handleResetBill}
+                  className="text-[11px] font-mono text-white/40 hover:text-red-400 transition-colors cursor-pointer"
+                  title="Reset to default bill template"
+                >
+                  Reset Bill
+                </button>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {tripPresets.map((preset, idx) => (
                   <button
