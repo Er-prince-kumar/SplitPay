@@ -154,32 +154,6 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     setMembers(prev => prev.filter(m => m.id !== id));
   };
 
-  // Central Automated Payment Engine — Zero Manual Clicks Required
-  const triggerAutoPayment = (memberToPay) => {
-    if (!memberToPay || memberToPay.status === 'paid') return;
-
-    sound.playUpiSuccess();
-    confetti({
-      particleCount: 50,
-      spread: 65,
-      origin: { y: 0.6 },
-      colors: ['#C6FF3D', '#0082FB', '#25D366']
-    });
-
-    setMembers(prev => prev.map(m => m.id === memberToPay.id ? { ...m, status: 'paid' } : m));
-
-    const refId = 'UPI' + Math.floor(100000 + Math.random() * 900000);
-    setPaymentToast({
-      name: memberToPay.name,
-      amount: perPersonShare,
-      ref: refId
-    });
-
-    setTimeout(() => {
-      setPaymentToast(null);
-    }, 4500);
-  };
-
   const handleOpenQrForMember = (member) => {
     sound.playClick();
     setQrTargetMember(member);
@@ -195,26 +169,36 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     setShowQrModal(true);
   };
 
-  const handleSettleQrPayment = () => {
-    if (!qrTargetMember) return;
+  // Only called when the payment is explicitly verified and confirmed
+  const handleConfirmPayment = (memberToPay) => {
+    if (!memberToPay) return;
+
+    sound.playUpiSuccess();
+    confetti({
+      particleCount: 55,
+      spread: 65,
+      origin: { y: 0.6 },
+      colors: ['#C6FF3D', '#0082FB', '#25D366']
+    });
+
+    setMembers(prev => prev.map(m => m.id === memberToPay.id ? { ...m, status: 'paid' } : m));
     setQrPaymentStatus('received');
-    triggerAutoPayment(qrTargetMember);
+
+    const refId = 'UPI' + Math.floor(100000 + Math.random() * 900000);
+    setPaymentToast({
+      name: memberToPay.name,
+      amount: perPersonShare,
+      ref: refId
+    });
+
+    setTimeout(() => {
+      setPaymentToast(null);
+    }, 4500);
+
     setTimeout(() => {
       setShowQrModal(false);
-    }, 2400);
+    }, 1800);
   };
-
-  // Automated Webhook polling effect: Automatically detects payment arrival when QR is open
-  useEffect(() => {
-    if (!showQrModal || qrPaymentStatus === 'received' || !qrTargetMember) return;
-
-    // Automatically detect payment arrival within 3.8 seconds
-    const timer = setTimeout(() => {
-      handleSettleQrPayment();
-    }, 3800);
-
-    return () => clearTimeout(timer);
-  }, [showQrModal, qrPaymentStatus, qrTargetMember]);
 
   const handleSendWhatsApp = (member) => {
     sound.playClick();
@@ -227,13 +211,6 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       tone: 'standard'
     });
     openWhatsAppDirect(member.phone || '9876543210', message);
-
-    // If friend is pending, automatically settle their payment via webhook in 5 seconds
-    if (member && member.status === 'pending') {
-      setTimeout(() => {
-        triggerAutoPayment(member);
-      }, 5000);
-    }
   };
 
   const handleCopySummary = () => {
@@ -378,29 +355,13 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
               <div className="flex items-center justify-between flex-wrap gap-2 text-xs font-mono">
                 <div className="flex items-center gap-2">
                   <span className="text-white/50">MEMBERS ({members.length})</span>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/20 text-[10px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-ping" />
-                    <span>Auto-Sync UPI Webhook</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/50 border border-white/10">
+                    Individual UPI Settlement
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <span className="text-[#C6FF3D] font-bold">₹{perPersonShare.toLocaleString('en-IN')} / person</span>
-                  
-                  {members.some(m => m.status === 'pending') && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextPending = members.find(m => m.status === 'pending');
-                        if (nextPending) triggerAutoPayment(nextPending);
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-[#C6FF3D]/15 hover:bg-[#C6FF3D]/25 text-[#C6FF3D] border border-[#C6FF3D]/30 text-[11px] font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1"
-                      title="Simulate automatic incoming UPI payment"
-                    >
-                      <Zap className="w-3 h-3 text-[#C6FF3D]" />
-                      <span>Simulate Auto-Pay</span>
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -435,10 +396,11 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                         <button
                           type="button"
                           onClick={() => handleOpenQrForMember(member)}
-                          className="p-1 rounded-lg text-white/50 hover:text-[#C6FF3D] hover:bg-white/5 border border-white/10 transition-colors cursor-pointer"
-                          title={`Show QR Code to auto-settle ${member.name}`}
+                          className="px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold text-white/80 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                          title={`Open UPI payment & QR for ${member.name}`}
                         >
-                          <QrCode className="w-3.5 h-3.5" />
+                          <QrCode className="w-3.5 h-3.5 text-[#C6FF3D]" />
+                          <span>Pay</span>
                         </button>
                       )}
 
@@ -446,7 +408,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                         type="button"
                         onClick={() => handleSendWhatsApp(member)}
                         className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30 transition-colors cursor-pointer flex items-center gap-1"
-                        title={`Send WhatsApp message to ${member.name} (Auto-settles upon payment)`}
+                        title={`Send WhatsApp payment request to ${member.name}`}
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">WhatsApp</span>
@@ -455,21 +417,19 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                       {member.status === 'paid' ? (
                         <span
                           className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-[#C6FF3D]/15 text-[#C6FF3D] border border-[#C6FF3D]/30 select-none cursor-default shadow-sm"
-                          title="Payment verified via UPI"
+                          title="Payment verified"
                         >
                           <CheckCircle2 className="w-3 h-3" />
                           <span>Paid</span>
                         </span>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenQrForMember(member)}
-                          className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-amber-400/15 hover:bg-amber-400/25 text-amber-400 border border-amber-400/30 transition-all cursor-pointer active:scale-95"
-                          title={`Payment pending for ${member.name}. Click to open UPI QR code & pay.`}
+                        <span
+                          className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-amber-400/15 text-amber-400 border border-amber-400/30 select-none cursor-default"
+                          title={`Payment pending for ${member.name}`}
                         >
                           <Clock className="w-3 h-3" />
                           <span>Pending</span>
-                        </button>
+                        </span>
                       )}
 
                       {!member.isHost && (
@@ -618,7 +578,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
       </div>
 
-      {/* Smart UPI QR Code Modal with Real-Time Webhook Auto-Detection */}
+      {/* Smart UPI QR Code & Payment Confirmation Modal */}
       {showQrModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-sm p-6 rounded-3xl bg-[#121324] border border-white/15 shadow-2xl space-y-4 text-center relative animate-in zoom-in-95 duration-200">
@@ -634,12 +594,12 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
             {/* Modal Header */}
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0082FB]/15 border border-[#0082FB]/30 text-[#0082FB] font-mono text-[11px]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#0082FB] animate-ping" />
-                <span>UPI GATEWAY AUTO-DETECTION</span>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#C6FF3D]/10 border border-[#C6FF3D]/30 text-[#C6FF3D] font-mono text-[11px]">
+                <QrCode className="w-3 h-3" />
+                <span>UPI DIRECT PAYMENT</span>
               </div>
               <h3 className="text-xl font-bold text-white font-['Space_Grotesk']">
-                Scan to Settle Bill
+                Pay Bill Share
               </h3>
               <p className="text-xs text-white/60">
                 Paying for <strong className="text-white font-bold">{qrTargetMember?.name || 'Friend'}</strong> • ₹{perPersonShare.toLocaleString('en-IN')}
@@ -656,61 +616,70 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
               {qrPaymentStatus === 'received' && (
                 <div className="absolute inset-0 bg-[#0B0C16]/90 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center space-y-2 animate-in fade-in duration-200 text-[#C6FF3D]">
                   <CheckCircle2 className="w-14 h-14 text-[#C6FF3D] animate-bounce" />
-                  <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">PAID & VERIFIED</span>
+                  <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">PAYMENT CONFIRMED</span>
                 </div>
               )}
             </div>
 
-            {/* Live Webhook Status / Auto-Detection Banner */}
+            {/* UPI ID Row */}
+            <div className="p-2.5 rounded-xl bg-[#0B0C16] border border-white/10 text-xs font-mono text-white/70 flex items-center justify-between">
+              <span className="truncate">UPI ID: <strong className="text-white font-bold">{hostUpi}</strong></span>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  if (navigator.clipboard) navigator.clipboard.writeText(hostUpi);
+                }}
+                className="text-[11px] text-[#C6FF3D] hover:underline shrink-0 ml-2 cursor-pointer font-bold"
+              >
+                Copy
+              </button>
+            </div>
+
+            {/* Mobile 1-Tap UPI Deep Link */}
+            <a
+              href={`upi://pay?pa=${hostUpi}&pn=${encodeURIComponent(hostName)}&am=${perPersonShare}&cu=INR&tn=${encodeURIComponent(tripName)}`}
+              onClick={() => sound.playClick()}
+              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium text-xs border border-white/10 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <span>Open in UPI App (GPay / PhonePe / Paytm)</span>
+            </a>
+
+            {/* Payment Action: Explicit Confirmation */}
             {qrPaymentStatus === 'waiting' ? (
-              <div className="p-3 rounded-xl bg-[#0B0C16] border border-white/10 space-y-2 text-left">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0082FB] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#0082FB]"></span>
-                    </span>
-                    <div>
-                      <div className="text-xs font-bold text-white font-['Space_Grotesk']">Auto-detecting payment...</div>
-                      <div className="text-[10px] text-white/50 font-mono">Listening for UPI settlement webhook</div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSettleQrPayment}
-                    className="px-2.5 py-1 rounded-lg bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] text-[11px] font-bold font-mono transition-transform active:scale-95 cursor-pointer shadow-sm"
-                  >
-                    ⚡ Settle
-                  </button>
-                </div>
-                <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden">
-                  <div className="bg-gradient-to-r from-[#0082FB] to-[#C6FF3D] h-full w-full animate-pulse rounded-full" />
-                </div>
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleConfirmPayment(qrTargetMember)}
+                  className="w-full py-3 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs sm:text-sm font-['Space_Grotesk'] transition-all active:scale-95 cursor-pointer shadow-lg shadow-[#C6FF3D]/15 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Confirm ₹{perPersonShare.toLocaleString('en-IN')} Received</span>
+                </button>
+                <p className="text-[10px] text-white/40 font-mono">
+                  Status changes to Paid only after payment is confirmed.
+                </p>
               </div>
             ) : (
               <div className="p-3.5 rounded-xl bg-[#25D366]/15 border border-[#25D366]/40 text-center space-y-1 animate-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-center gap-1.5 text-[#25D366] font-bold text-sm font-['Space_Grotesk']">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Payment Automatically Settled!</span>
+                  <span>Payment Successfully Recorded!</span>
                 </div>
                 <div className="text-[11px] text-white/80 font-mono">
-                  ₹{perPersonShare.toLocaleString('en-IN')} received from {qrTargetMember?.name} • Updated in bill
+                  ₹{perPersonShare.toLocaleString('en-IN')} from {qrTargetMember?.name} verified • Updated in bill
                 </div>
               </div>
             )}
-
-            <div className="text-[11px] font-mono text-white/50">
-              UPI ID: <strong className="text-white font-bold">{hostUpi}</strong> (GPay, PhonePe, Paytm)
-            </div>
 
             <button
               onClick={() => {
                 sound.playClick();
                 setShowQrModal(false);
               }}
-              className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-colors cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs font-medium transition-colors cursor-pointer"
             >
-              {qrPaymentStatus === 'received' ? 'Done & Return to Bill' : 'Cancel'}
+              {qrPaymentStatus === 'received' ? 'Done & Return to Bill' : 'Close (Keep Pending)'}
             </button>
           </div>
         </div>
