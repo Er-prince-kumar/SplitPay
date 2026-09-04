@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Camera, 
   Upload, 
@@ -20,14 +20,12 @@ import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';
 import { openWhatsAppDirect } from '../../utils/whatsapp';
 import { 
-  SAMPLE_RECEIPTS, 
   calculateItemizedSplit, 
   buildItemizedWhatsAppSummary 
 } from '../../utils/receiptOcrEngine';
 
 const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
   // Start with completely blank receipt state (no default pre-filled items)
-  const [activeReceipt, setActiveReceipt] = useState(null);
   const [uploadedImagePreview, setUploadedImagePreview] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccessToast, setScanSuccessToast] = useState(false);
@@ -42,13 +40,24 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
 
-  // Squad members participating in this meal (defaults to Host only)
+  // Squad members participating in this meal (defaults to logged-in user / Admin only)
   const [squad, setSquad] = useState([
-    { id: 'm-1', name: currentUser?.name || 'You (Host)', avatar: currentUser?.avatar || '👑', isHost: true },
-    { id: 'm-2', name: 'Rohit K.', avatar: '👨‍💻', isHost: false },
-    { id: 'm-3', name: 'Priya S.', avatar: '👩‍🎨', isHost: false },
-    { id: 'm-4', name: 'Aman M.', avatar: '🎒', isHost: false }
+    { 
+      id: 'm-host', 
+      name: currentUser?.name || 'You (Host)', 
+      avatar: currentUser?.avatar || '👑', 
+      isHost: true 
+    }
   ]);
+
+  // Sync host name when currentUser updates
+  useEffect(() => {
+    if (currentUser?.name) {
+      setSquad((prev) =>
+        prev.map((m) => m.isHost ? { ...m, name: currentUser.name, avatar: currentUser.avatar || m.avatar } : m)
+      );
+    }
+  }, [currentUser]);
 
   const [newFriendName, setNewFriendName] = useState('');
   const [copiedSummary, setCopiedSummary] = useState(false);
@@ -65,34 +74,6 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
     members: squad,
     claims
   });
-
-  // Handle selecting a sample template (optional)
-  const handleSelectSample = (sample) => {
-    sound.playClick();
-    setIsScanning(true);
-    setUploadedImagePreview(null);
-
-    setTimeout(() => {
-      setActiveReceipt(sample);
-      setReceiptName(sample.name);
-      setItems(sample.items);
-      setTax(sample.tax);
-      setTipOrFee(sample.tipOrFee);
-
-      // Distribute sample items across squad
-      const newClaims = {};
-      sample.items.forEach((it, idx) => {
-        if (squad.length > 0) {
-          const m = squad[idx % squad.length];
-          newClaims[it.id] = [m.id];
-        }
-      });
-      setClaims(newClaims);
-
-      setIsScanning(false);
-      sound.playUpiSuccess();
-    }, 600);
-  };
 
   // Handle uploading real receipt photo
   const handleFileUpload = (e) => {
@@ -120,11 +101,10 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
         setTax(48);
         setTipOrFee(30);
 
+        const hostId = squad[0]?.id || 'm-host';
         const newClaims = {
-          'custom-1': ['m-1'],
-          'custom-2': ['m-1', 'm-2'],
-          'custom-3': ['m-3'],
-          'custom-4': ['m-4']
+          'custom-1': [hostId],
+          'custom-2': [hostId]
         };
         setClaims(newClaims);
 
@@ -180,7 +160,6 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
     if (items.length > 0 || receiptName) {
       if (!window.confirm("Clear all items and reset this receipt to blank (00)?")) return;
     }
-    setActiveReceipt(null);
     setUploadedImagePreview(null);
     setReceiptName('');
     setItems([]);
@@ -368,27 +347,6 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                 />
               </div>
 
-              {/* Optional Sample Quick Chips */}
-              <div className="space-y-1.5">
-                <div className="text-[11px] font-mono text-white/40">Or test with quick sample templates (optional):</div>
-                <div className="flex flex-wrap gap-2">
-                  {SAMPLE_RECEIPTS.map((sample) => (
-                    <button
-                      key={sample.id}
-                      onClick={() => handleSelectSample(sample)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
-                        activeReceipt?.id === sample.id && !uploadedImagePreview
-                          ? 'bg-[#0082FB]/20 text-[#0082FB] border border-[#0082FB]/40 font-bold'
-                          : 'bg-white/5 hover:bg-white/10 text-white/70 border border-white/10'
-                      }`}
-                    >
-                      <span>{sample.name.split(' ')[0]}</span>
-                      <span className="text-white/40 font-normal">₹{sample.total}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Visual Scanning Animation Box */}
               {isScanning && (
                 <div className="relative h-28 rounded-xl bg-[#0B0C16] border border-[#C6FF3D]/30 overflow-hidden flex flex-col items-center justify-center space-y-2">
@@ -428,7 +386,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
             <div className="p-5 sm:p-6 rounded-2xl bg-[#121324] border border-white/10 space-y-3.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono font-bold text-white/60 uppercase tracking-wider">
-                  Step 2: Who&apos;s Splitting? ({squad.length} Friends)
+                  Step 2: Who&apos;s Splitting? ({squad.length} {squad.length === 1 ? 'Person (Admin)' : 'Friends'})
                 </span>
               </div>
 
@@ -471,6 +429,12 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
                   </button>
                 </form>
               </div>
+
+              {squad.length === 1 && (
+                <p className="text-[11px] font-mono text-white/40">
+                  Only you (admin) initially. Type a friend&apos;s name above to add them to this split.
+                </p>
+              )}
             </div>
 
             {/* Step 3: Receipt Name, Items List & "Tap What You Ordered" */}
