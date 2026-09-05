@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component } from 'react';
 import PerformanceBackground from './components/splitpay/PerformanceBackground';
 import Navbar from './components/splitpay/Navbar';
 import Hero3D from './components/splitpay/Hero3D';
@@ -17,6 +17,53 @@ import HowItWorksModal from './components/splitpay/HowItWorksModal';
 import ReceiptOcrSection from './components/splitpay/ReceiptOcrSection';
 import PaymentGatewayPage from './components/splitpay/PaymentGatewayPage';
 import { sound } from './utils/audio';
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#070810] text-white flex flex-col items-center justify-center p-6 text-center space-y-4 font-mono">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-2xl">
+            ⚠️
+          </div>
+          <h2 className="text-xl font-bold font-['Space_Grotesk']">Kuch Takneeki Samasya Aayi</h2>
+          <p className="text-xs text-white/60 max-w-md leading-relaxed">
+            {this.state.error?.message || "Kripya page ko refresh karein ya wapas SplitPay par jayein."}
+          </p>
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 rounded-xl bg-[#C6FF3D] text-[#0B0C16] font-bold text-xs cursor-pointer"
+            >
+              Refresh Page
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = window.location.origin + window.location.pathname;
+              }}
+              className="px-4 py-2 rounded-xl bg-white/10 text-white font-bold text-xs cursor-pointer"
+            >
+              Return Home
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function App() {
   const [gatewayData, setGatewayData] = useState(null);
@@ -138,16 +185,18 @@ function App() {
   // If opened via payment gateway link, render the verified Payment Gateway Page
   if (gatewayData) {
     return (
-      <PaymentGatewayPage
-        gatewayData={gatewayData}
-        onBackToApp={() => {
-          setGatewayData(null);
-          try {
-            const cleanUrl = window.location.origin + window.location.pathname;
-            window.history.pushState({}, '', cleanUrl);
-          } catch (e) {}
-        }}
-      />
+      <ErrorBoundary>
+        <PaymentGatewayPage
+          gatewayData={gatewayData}
+          onBackToApp={() => {
+            setGatewayData(null);
+            try {
+              const cleanUrl = window.location.origin + window.location.pathname;
+              window.history.pushState({}, '', cleanUrl);
+            } catch (e) {}
+          }}
+        />
+      </ErrorBoundary>
     );
   }
 
