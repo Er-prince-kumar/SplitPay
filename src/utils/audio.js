@@ -93,6 +93,23 @@ class SoundManager {
     osc.start(now);
     osc.stop(now + 0.08);
   }
+
+  // Authentic Indian UPI Soundbox Voice Announcement (Hindi / Hinglish)
+  speakUpiReceived(amount, payerName = '') {
+    if (this.muted || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const num = Math.round(Number(amount) || 0);
+      const text = payerName 
+        ? `SplitPay par ${payerName} se ${num} rupaye prapt hue`
+        : `SplitPay par ${num} rupaye prapt hue`;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'hi-IN';
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {}
+  }
 }
 
 export const sound = new SoundManager();

@@ -188,8 +188,7 @@ export const buildItemizedWhatsAppSummary = ({
   });
 
   message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `⚡ *1-Tap UPI Payment:* upi://pay?pa=${hostUpi}&cu=INR\n`;
-  message += `👉 Pay directly to UPI ID: *${hostUpi}*\n`;
+  message += `👉 Pay directly to UPI ID: *${hostUpi}* (PhonePe/GPay/Paytm)\n`;
   message += `_Calculated with SplitPay Receipt OCR_`;
 
   return message;

@@ -100,17 +100,17 @@ export const generateAIReminder = ({ friendName = 'Friend', amount = 500, tripNa
 
   const templates = {
     meme: [
-      `Arre ${friendName}! 😭 Mera bank account filhaal 'Channa Mereya' gaa raha hai... ${tripName} ka ${amtStr} pending hai. 1-tap me settle kardo bhai: upi://pay?pa=${hostUpi}&am=${amount} 💸`,
-      `Emergency Bulletin for ${friendName}! 📢 RBI has noted ₹0 incoming from your side for ${tripName} (${amtStr}). Bachpan ka pyaar bhool nahi jaana, UPI tap kardo: upi://pay?pa=${hostUpi}&am=${amount} 🚀`,
-      `Legend says ${friendName} is still thinking about paying ${amtStr} for ${tripName}... 🏆 Clear kardo bhai, ek click me direct UPI: upi://pay?pa=${hostUpi}&am=${amount} ☕`
+      `Arre ${friendName}! 😭 Mera bank account filhaal 'Channa Mereya' gaa raha hai... ${tripName} ka ${amtStr} pending hai. Pay to UPI: ${hostUpi} (GPay/PhonePe) 💸`,
+      `Emergency Bulletin for ${friendName}! 📢 RBI has noted ₹0 incoming from your side for ${tripName} (${amtStr}). Bachpan ka pyaar bhool nahi jaana, UPI kar do: ${hostUpi} 🚀`,
+      `Legend says ${friendName} is still thinking about paying ${amtStr} for ${tripName}... 🏆 Clear kardo bhai, UPI ID: ${hostUpi} ☕`
     ],
     polite: [
-      `Hey ${friendName}! Hope you had a great time during ${tripName}. Whenever you get a moment, here is the direct link for your share of ${amtStr}: upi://pay?pa=${hostUpi}&am=${amount} Thanks a lot! ✨`,
-      `Hi ${friendName}, just doing the end-of-week accounting for ${tripName}. Your split is ${amtStr}. You can pay directly with 1 tap here: upi://pay?pa=${hostUpi}&am=${amount} 🙏`
+      `Hey ${friendName}! Hope you had a great time during ${tripName}. Whenever you get a moment, please settle your share of ${amtStr} on UPI: ${hostUpi}. Thanks a lot! ✨`,
+      `Hi ${friendName}, just doing the accounting for ${tripName}. Your split is ${amtStr}. You can pay directly to UPI: ${hostUpi} (PhonePe/GPay) 🙏`
     ],
     urgent: [
-      `Hey ${friendName}, need to clear the vendor / host payments for ${tripName} today. Please settle your share of ${amtStr} via UPI: upi://pay?pa=${hostUpi}&am=${amount} Thanks! ⚡`,
-      `Reminder: ${amtStr} due for ${tripName}. Tap to settle via GPay/PhonePe: upi://pay?pa=${hostUpi}&am=${amount} ⏳`
+      `Hey ${friendName}, need to clear the host payments for ${tripName} today. Please settle your share of ${amtStr} via UPI: ${hostUpi}. Thanks! ⚡`,
+      `Reminder: ${amtStr} due for ${tripName}. Please settle to UPI ID: ${hostUpi} (GPay/PhonePe/Paytm) ⏳`
     ]
   };
 

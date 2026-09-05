@@ -53,19 +53,20 @@ export const buildSplitWhatsAppMessage = ({
   tone = 'standard'
 }) => {
   const formattedAmount = Number(amount).toLocaleString('en-IN');
-  const directUpiLink = hostUpi
-    ? `upi://pay?pa=${hostUpi}&pn=${encodeURIComponent(hostName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(tripName || 'SplitPay')}`
-    : '';
+  const appLink = 'https://er-prince-kumar.github.io/SplitPay/';
 
   let text = `Hey ${friendName}! 👋\n`;
   text += `Here is your personal split share for *${tripName}*:\n\n`;
   text += `💰 *Amount to Pay*: *₹${formattedAmount}*\n`;
   text += `👤 *Organizer*: ${hostName}\n`;
-  text += `💳 *UPI ID*: *${hostUpi || 'Ask host'}*\n\n`;
-  if (directUpiLink) {
-    text += `⚡ *1-Tap Pay via UPI* (GPay/PhonePe/Paytm):\n${directUpiLink}\n\n`;
+  if (hostUpi) {
+    text += `💳 *Pay to UPI ID*: *${hostUpi}*\n`;
+    text += `📱 _(PhonePe, Google Pay, ya Paytm me UPI ID search karke pay karein)_\n\n`;
+  } else {
+    text += `💳 *UPI ID*: Contact ${hostName}\n\n`;
   }
-  text += `Please clear your share when you get a chance! 🙏\n_Sent via SplitPay ⚡_`;
+  text += `🌐 *View Live Bill & Scan UPI QR Code*:\n${appLink}\n\n`;
+  text += `Please settle whenever you get a minute! 🙏\n_Sent via SplitPay ⚡_`;
   return text;
 };
 
@@ -82,9 +83,7 @@ export const buildGroupSplitWhatsAppMessage = ({
 }) => {
   const formattedTotal = Number(totalAmount).toLocaleString('en-IN');
   const formattedShare = Number(perPersonShare).toLocaleString('en-IN');
-  const upiLink = hostUpi 
-    ? `upi://pay?pa=${hostUpi}&pn=${encodeURIComponent(hostName)}&am=${perPersonShare}&cu=INR&tn=${encodeURIComponent(tripName || 'SplitPay')}`
-    : '';
+  const appLink = 'https://er-prince-kumar.github.io/SplitPay/';
 
   const memberLines = members.map((m, idx) => {
     const isPaid = m.status === 'paid';
@@ -93,16 +92,17 @@ export const buildGroupSplitWhatsAppMessage = ({
 
   let text = `📢 *SplitPay Bill Breakdown: ${tripName || 'Group Split'}* 💸\n\n`;
   text += `💰 *Total Bill*: ₹${formattedTotal}\n`;
-  text += `👥 *Total Squad Members*: ${members.length}\n`;
+  text += `👥 *Total Friends*: ${members.length}\n`;
   text += `👉 *Per Person Share*: *₹${formattedShare} each*\n\n`;
   text += `📋 *Member Status:*\n${memberLines}\n\n`;
   text += `⚡ *How to Pay (Direct UPI to Host):*\n`;
-  text += `👤 Host: *${hostName}*\n`;
-  text += `💳 UPI ID: *${hostUpi || 'Pending'}*\n`;
-  if (upiLink) {
-    text += `🔗 *1-Tap UPI Payment Link*:\n${upiLink}\n\n`;
+  text += `👤 *Organizer*: ${hostName}\n`;
+  if (hostUpi) {
+    text += `💳 *UPI ID*: *${hostUpi}*\n`;
+    text += `📱 _(PhonePe, Google Pay, ya Paytm me UPI ID daal kar pay karein)_\n\n`;
   }
-  text += `Sabhi log apna share jaldi settle kardo bhai! 🙏\nPowered by SplitPay ⚡`;
+  text += `🌐 *View Live Bill & Scan UPI QR*:\n${appLink}\n\n`;
+  text += `Sabhi dost apna share settle kar dein! 🙏\n_Powered by SplitPay ⚡_`;
   return text;
 };
 

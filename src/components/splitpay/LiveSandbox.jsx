@@ -259,7 +259,7 @@ const LiveSandbox = () => {
               </div>
 
               <div className="p-3 rounded-xl bg-white/5 text-white/80 text-[11px] leading-relaxed">
-                "Bhai! The bill for <span className="text-[#C6FF3D] font-bold">{presets[selectedPreset]?.name || "our group"}</span> came to ₹{adjustedTotal.toLocaleString('en-IN')}. Your share is <span className="text-[#C6FF3D] font-bold">₹{perPersonShare}</span>. Pay in 1 tap on UPI via Razorpay: <span className="text-[#0082FB] underline">rzp.io/l/sp-{groupSize}way</span>"
+                "Bhai! The bill for <span className="text-[#C6FF3D] font-bold">{presets[selectedPreset]?.name || "our group"}</span> came to ₹{adjustedTotal.toLocaleString('en-IN')}. Your share is <span className="text-[#C6FF3D] font-bold">₹{perPersonShare}</span>. Settle instantly via UPI on SplitPay: <span className="text-[#0082FB] underline">er-prince-kumar.github.io/SplitPay</span>"
               </div>
 
               <button

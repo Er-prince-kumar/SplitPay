@@ -308,7 +308,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
     const text = `Hey ${friendBreakdown.name}! 🧾 In our *${receiptName || 'Group'}* bill:\n` +
       `You ordered: ${itemsList || 'Items'}\n` +
       `Your total share (incl. tax): *₹${friendBreakdown.totalAmount}*\n` +
-      `Pay via UPI: upi://pay?pa=${hostUpiId}&am=${friendBreakdown.totalAmount} 🚀`;
+      (hostUpiId ? `Pay to UPI ID: *${hostUpiId}* (GPay/PhonePe/Paytm) 🚀` : `_Sent via SplitPay ⚡_`);
 
     openWhatsAppDirect(friendBreakdown.phone || '', text);
   };
