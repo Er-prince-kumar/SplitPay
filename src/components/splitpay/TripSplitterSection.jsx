@@ -532,11 +532,11 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                 <label className="text-xs font-mono text-white/50 block">TOTAL (₹)</label>
                 <input
                   type="number"
-                  min="0"
-                  step="50"
+                  min="1"
+                  step="any"
                   value={totalAmount}
                   onChange={(e) => setTotalAmount(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
-                  placeholder="00"
+                  placeholder="Enter amount (₹1 to unlimited)"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white text-sm focus:border-[#C6FF3D] focus:outline-none transition-colors font-bold font-mono"
                 />
               </div>

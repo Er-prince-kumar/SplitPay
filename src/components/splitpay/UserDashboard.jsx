@@ -822,12 +822,12 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
                 <label className="text-white/60 block">TOTAL BILL AMOUNT (₹)</label>
                 <input
                   type="number"
-                  min="50"
-                  step="10"
+                  min="1"
+                  step="any"
                   required
                   value={newTripAmount}
                   onChange={(e) => setNewTripAmount(e.target.value)}
-                  placeholder="e.g. 5200"
+                  placeholder="Enter amount (₹1 to unlimited, e.g. 10, 500, 10000)"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white font-bold focus:border-[#C6FF3D] focus:outline-none transition-colors"
                 />
               </div>
