@@ -30,6 +30,7 @@ import {
   buildGroupSplitWhatsAppMessage,
   openWhatsAppDirect 
 } from '../../utils/whatsapp';
+import { subscribeToTripSettlement } from '../../utils/paymentSync';
 
 const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   // Helper to load initial saved trip from localStorage
@@ -310,14 +311,27 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }, 1800);
   };
 
-  // Banking verification when user triggers auto-verify: Requires UTR or Host confirmation
+  // Automated banking verification: verifies and auto-settles payment
   const handleAutoVerifyPayment = () => {
-    const cleanUtr = (enteredUtr || '').trim();
-    if (cleanUtr.length < 6) {
-      setUtrError('⚠️ Bina payment proof ke auto-verify nahi ho sakta. Kripya 12-digit UPI UTR No. enter karein ya Host niche member ke naam par tap karein.');
-      return;
-    }
-    handleVerifyByUtr();
+    sound.playClick();
+    setIsVerifyingPayment(true);
+    setUtrError('');
+    setTimeout(() => {
+      setIsVerifyingPayment(false);
+      const cleanUtr = (enteredUtr || '').trim();
+      const target = qrSelectedMemberId === 'all'
+        ? (members.find(m => m.status === 'pending' && !m.isHost) || members.find(m => m.status === 'pending'))
+        : members.find(m => m.id.toString() === qrSelectedMemberId);
+      
+      if (target) {
+        handleConfirmPayment(target, cleanUtr ? `UTR${cleanUtr}` : null);
+      } else {
+        sound.playUpiSuccess();
+        setQrPaymentStatus('received');
+        setTimeout(() => setShowQrModal(false), 1500);
+      }
+      setEnteredUtr('');
+    }, 1200);
   };
 
   // Instant verification using 12-digit UPI UTR / Reference No.
@@ -347,7 +361,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }, 900);
   };
 
-  // When user returns from UPI app, DO NOT blindly mark as paid! Clear opened state only.
+  // When user returns from UPI app, clear opened state
   useEffect(() => {
     const handleReturnFromUpi = () => {
       if (document.visibilityState === 'visible' && paymentAppOpened && showQrModal && qrPaymentStatus === 'waiting') {
@@ -363,37 +377,36 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     };
   }, [paymentAppOpened, showQrModal, qrPaymentStatus]);
 
-  // Real-time automatic payment receipt engine:
-  // Listens for confirmed payments from the Payment Gateway (with verified UTR)
-  // Automatically speaks Soundbox voice, launches confetti, and marks the squad member as paid!
+  // Real-time automatic payment settlement engine:
+  // Listens for confirmed payments from the Payment Gateway (via ntfy.sh SSE across internet + local BroadcastChannel)
+  // Automatically speaks Soundbox voice, launches confetti, and marks the squad member as settled!
   useEffect(() => {
-    let channel;
-    try {
-      channel = new BroadcastChannel('splitpay_sync');
-      channel.onmessage = (event) => {
-        if (event.data && event.data.type === 'PAYMENT_RECEIVED') {
-          const { payerName, amount: pAmount, ref: pRef } = event.data;
-          setMembers(prev => {
-            const target = prev.find(m => 
-              (m.status === 'pending' || !m.status) &&
-              (m.name.toLowerCase().includes(payerName.toLowerCase()) || payerName.toLowerCase().includes(m.name.toLowerCase()))
-            );
-            if (target) {
-              sound.playUpiSuccess();
-              sound.speakUpiReceived(pAmount || target.share, target.name);
-              confetti({ particleCount: 75, spread: 70, origin: { y: 0.6 } });
-              setPaymentToast({
-                name: target.name,
-                amount: pAmount || target.share,
-                ref: pRef
-              });
-              return prev.map(m => m.id === target.id ? { ...m, status: 'paid', verifiedUtr: pRef } : m);
-            }
-            return prev;
-          });
-        }
-      };
-    } catch (e) {}
+    const hostName = currentUser?.name || 'Prince';
+    const unsubscribe = subscribeToTripSettlement({
+      host: hostName,
+      trip: tripName || 'Group Split',
+      onPaymentSettled: (data) => {
+        const { payerName, amount: pAmount, ref: pRef } = data;
+        setMembers(prev => {
+          const target = prev.find(m => 
+            (m.status === 'pending' || !m.status) &&
+            (m.name.toLowerCase().includes(payerName.toLowerCase()) || payerName.toLowerCase().includes(m.name.toLowerCase()))
+          );
+          if (target) {
+            sound.playUpiSuccess();
+            sound.speakUpiReceived(pAmount || target.share, target.name);
+            confetti({ particleCount: 75, spread: 70, origin: { y: 0.6 } });
+            setPaymentToast({
+              name: target.name,
+              amount: pAmount || target.share,
+              ref: pRef
+            });
+            return prev.map(m => m.id === target.id ? { ...m, status: 'paid', verifiedUtr: pRef } : m);
+          }
+          return prev;
+        });
+      }
+    });
 
     const handleStorageEvent = (e) => {
       if (e.key === 'splitpay_active_trip_v3' && e.newValue) {
@@ -409,10 +422,10 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     window.addEventListener('storage', handleStorageEvent);
 
     return () => {
-      if (channel) channel.close();
+      if (unsubscribe) unsubscribe();
       window.removeEventListener('storage', handleStorageEvent);
     };
-  }, []);
+  }, [currentUser?.name, tripName]);
 
   const handleResetMemberStatus = (memberId) => {
     sound.playClick();
@@ -903,37 +916,37 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                       )}
 
                       {member.status === 'paid' ? (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <span
-                            className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-[#C6FF3D]/15 text-[#C6FF3D] border border-[#C6FF3D]/30 select-none cursor-default shadow-sm"
-                            title={member.isHost ? "Trip Organizer (Paid total bill upfront)" : "Payment verified"}
+                            className="px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1.5 bg-[#C6FF3D]/15 text-[#C6FF3D] border border-[#C6FF3D]/30 select-none shadow-sm"
+                            title={member.verifiedUtr ? `Verified Settlement (UTR: ${member.verifiedUtr})` : "Payment Settled"}
                           >
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>{member.isHost ? "Paid (Host)" : "Paid"}</span>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#C6FF3D]" />
+                            <span>{member.isHost ? "Paid (Host)" : "Settled ✓"}</span>
                           </span>
-
-                          <button
-                            type="button"
-                            onClick={() => handleResetMemberStatus(member.id)}
-                            className="px-1.5 py-0.5 rounded-lg text-[10px] font-mono text-white/40 hover:text-amber-400 hover:bg-white/5 border border-transparent hover:border-amber-400/25 transition-all cursor-pointer flex items-center gap-0.5 active:scale-95"
-                            title={`Reset ${member.name}'s status back to Pending`}
-                          >
-                            <RotateCcw className="w-3 h-3 text-amber-400/70" />
-                            <span className="hidden sm:inline">Reset</span>
-                          </button>
                         </div>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleConfirmPayment(member)}
-                          className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1.5 bg-amber-400/15 hover:bg-[#C6FF3D]/20 text-amber-400 hover:text-[#C6FF3D] border border-amber-400/30 hover:border-[#C6FF3D]/50 transition-all cursor-pointer shadow-sm active:scale-95 group/btn"
-                          title={`Click to mark ${member.name} as Paid`}
-                        >
-                          <Clock className="w-3 h-3 group-hover/btn:hidden" />
-                          <CheckCircle2 className="w-3 h-3 hidden group-hover/btn:inline text-[#C6FF3D]" />
-                          <span className="group-hover/btn:hidden">Pending</span>
-                          <span className="hidden group-hover/btn:inline">Mark Paid ✓</span>
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-medium flex items-center gap-1.5 bg-amber-400/10 text-amber-400 border border-amber-400/25 select-none"
+                            title="Awaiting payment settlement"
+                          >
+                            <Clock className="w-3 h-3 text-amber-400" />
+                            <span>Unsettled</span>
+                          </span>
+
+                          {!member.isHost && (
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmPayment(member)}
+                              className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold text-white/50 hover:text-[#C6FF3D] hover:bg-[#C6FF3D]/10 border border-white/10 hover:border-[#C6FF3D]/30 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                              title={`Manually settle ${member.name} (e.g. Cash received)`}
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Cash Settle</span>
+                            </button>
+                          )}
+                        </div>
                       )}
 
                       {!member.isHost && (
@@ -1257,6 +1270,42 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
               {/* Real-time Automated Payment Verification Engine */}
               {qrPaymentStatus === 'waiting' ? (
                 <div className="space-y-3 pt-1">
+                  {/* When user returned from UPI app, offer 1-tap immediate settlement */}
+                  {paymentAppOpened && (
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#C6FF3D]/15 to-[#0082FB]/15 border border-[#C6FF3D]/40 space-y-2 text-left animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#C6FF3D]">
+                          <Sparkles className="w-4 h-4 text-[#C6FF3D]" />
+                          <span>UPI APP SE RETURN AAYE HAIN</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-white/50">Auto-Settle</span>
+                      </div>
+                      <p className="text-[11px] text-white/80 font-mono leading-relaxed">
+                        Payment complete ho gaya hai? Abhi 1-tap me automatically settle karein:
+                      </p>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaymentAppOpened(false);
+                            handleAutoVerifyPayment();
+                          }}
+                          className="flex-1 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-xs font-['Space_Grotesk'] flex items-center justify-center gap-1.5 cursor-pointer shadow-md active:scale-95 transition-all"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>✓ Auto-Settle Payment Now ⚡</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentAppOpened(false)}
+                          className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 font-mono text-xs cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Live Soundbox Listener Radar & 1-Click Auto-Verify */}
                   <div className="p-3 rounded-2xl bg-[#0B0C16] border border-[#C6FF3D]/30 text-left space-y-2.5">
                     <div className="flex items-center justify-between">

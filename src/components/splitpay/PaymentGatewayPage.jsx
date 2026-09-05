@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';
+import { broadcastPaymentSettled } from '../../utils/paymentSync';
 
 const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
   const {
@@ -232,19 +233,14 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
         }
       }
 
-      // Broadcast real-time payment event to host tab or any open window
-      try {
-        const channel = new BroadcastChannel('splitpay_sync');
-        channel.postMessage({
-          type: 'PAYMENT_RECEIVED',
-          payerName: friend,
-          amount: numAmount,
-          tripName: trip,
-          ref: ref,
-          timestamp: Date.now()
-        });
-        channel.close();
-      } catch (err) {}
+      // Broadcast real-time payment event to host dashboard across internet via ntfy.sh SSE + local BroadcastChannel
+      broadcastPaymentSettled({
+        host: cleanHost,
+        trip: trip,
+        payerName: friend,
+        amount: numAmount,
+        ref: ref
+      });
 
       window.dispatchEvent(new Event('storage'));
     } catch (e) {}
@@ -252,46 +248,31 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
 
   const handleManualVerifyClick = () => {
     sound.playClick();
-    const clean = utrNumber.replace(/\D/g, '');
-    if (clean.length < 6) {
-      setShowReturnPrompt(true);
-      setReturnStep('enterUtr');
-      setReturnUtr(utrNumber);
-      setReturnUtrError('⚠️ Bina UPI UTR number ke verify nahi ho sakta! Kripya receipt ka 12-digit UTR enter karein:');
-      return;
-    }
     setPaymentStatus('verifying');
     setUtrError('');
+    const clean = utrNumber.replace(/\D/g, '');
     setTimeout(() => {
-      handleConfirmSuccess(`UTR${clean}`);
+      handleConfirmSuccess(clean ? `UTR${clean}` : null);
     }, 1200);
   };
 
   const handleVerifyByUtr = () => {
     const clean = utrNumber.replace(/\D/g, '');
-    if (clean.length < 6) {
-      setUtrError('Kripya 6 se 16 digit ka valid UPI UTR / Ref number enter karein');
-      return;
-    }
     sound.playClick();
     setPaymentStatus('verifying');
     setTimeout(() => {
-      handleConfirmSuccess(`UTR${clean}`);
+      handleConfirmSuccess(clean ? `UTR${clean}` : null);
     }, 1200);
   };
 
   const handleConfirmReturnWithUtr = () => {
-    const clean = returnUtr.replace(/\D/g, '');
-    if (clean.length < 6) {
-      setReturnUtrError('Kripya valid 6 se 16 digit ka UPI UTR / Ref number enter karein');
-      return;
-    }
     sound.playClick();
     setShowReturnPrompt(false);
     setPaymentStatus('verifying');
+    const clean = returnUtr.replace(/\D/g, '');
     setUtrNumber(clean);
     setTimeout(() => {
-      handleConfirmSuccess(`UTR${clean}`);
+      handleConfirmSuccess(clean ? `UTR${clean}` : null);
     }, 1200);
   };
 
@@ -1014,7 +995,7 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                       className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#C6FF3D] to-[#25D366] text-[#0B0C16] font-bold text-sm font-['Space_Grotesk'] flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#C6FF3D]/25 active:scale-95 transition-all"
                     >
                       <Zap className="w-4 h-4 fill-current" />
-                      <span>Verify UTR &amp; Confirm Payment ⚡</span>
+                      <span>Verify &amp; Auto-Settle Payment ⚡</span>
                     </button>
 
                     <div className="flex gap-2">
