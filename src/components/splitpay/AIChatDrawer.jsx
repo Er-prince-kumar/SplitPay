@@ -61,7 +61,7 @@ const AIChatDrawer = ({ isOpen, onToggle, onApplyToSplitter, currentTripData }) 
     {
       id: 1,
       sender: 'bot',
-      text: "Namaste! Main hoon **SplitPay AI** — aapka 24/7 campus expense co-pilot. ⚡\n\nAap mujhse is website ke **saare features**, **kaise use karein**, **har function kaise kaam karta hai**, bills calculate karna ya funny WhatsApp reminders banana — sab kuch pooch sakte hain!",
+      text: "Namaste! Main hoon **SplitPay AI** (Powered by **Google Gemini** ✨) — aapka campus expense co-pilot. ⚡\n\nAap mujhse is website ke **saare features**, **kaise use karein**, **har function kaise kaam karta hai**, bills calculate karna ya funny WhatsApp reminders banana — sab kuch pooch sakte hain!",
       time: 'Just now'
     }
   ]);
@@ -211,7 +211,10 @@ const AIChatDrawer = ({ isOpen, onToggle, onApplyToSplitter, currentTripData }) 
                     ONLINE
                   </span>
                 </div>
-                <div className="text-[10px] text-white/50 font-mono">Campus Split &amp; Nudge Co-pilot</div>
+                <div className="text-[10px] text-[#C6FF3D]/90 font-mono flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-pulse" />
+                  <span>Powered by Google Gemini AI</span>
+                </div>
               </div>
             </div>
 
