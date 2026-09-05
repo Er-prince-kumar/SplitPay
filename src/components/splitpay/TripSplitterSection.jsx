@@ -23,6 +23,7 @@ import { sound } from '../../utils/audio';
 import { 
   formatDisplayPhone, 
   buildSplitWhatsAppMessage, 
+  buildGroupSplitWhatsAppMessage,
   openWhatsAppDirect 
 } from '../../utils/whatsapp';
 
@@ -65,6 +66,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrTargetMember, setQrTargetMember] = useState(null);
+  const [qrSelectedMemberId, setQrSelectedMemberId] = useState('all');
   const [qrPaymentStatus, setQrPaymentStatus] = useState('waiting');
   const [paymentToast, setPaymentToast] = useState(null);
   const [savedSuccessToast, setSavedSuccessToast] = useState(false);
@@ -221,14 +223,15 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   const handleOpenQrForMember = (member) => {
     sound.playClick();
     setQrTargetMember(member);
+    setQrSelectedMemberId(member.id.toString());
     setQrPaymentStatus('waiting');
     setShowQrModal(true);
   };
 
   const handleOpenGeneralQr = () => {
     sound.playClick();
-    const target = members.find(m => m.status === 'pending') || members[1] || members[0];
-    setQrTargetMember(target);
+    setQrTargetMember(null);
+    setQrSelectedMemberId('all');
     setQrPaymentStatus('waiting');
     setShowQrModal(true);
   };
@@ -330,6 +333,41 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       tone: 'standard'
     });
     openWhatsAppDirect(member.phone || '', message);
+  };
+
+  const handleSendGroupWhatsApp = () => {
+    sound.playClick();
+    const message = buildGroupSplitWhatsAppMessage({
+      tripName: tripName || 'Group Split',
+      totalAmount: numAmount,
+      perPersonShare,
+      hostName: hostName || currentUser?.name || 'Host',
+      hostUpi: hostUpi || '',
+      members
+    });
+    openWhatsAppDirect('', message);
+  };
+
+  const handleNudgeAllPending = () => {
+    sound.playClick();
+    const pendingWithPhone = members.filter(m => m.status === 'pending' && m.phone);
+    if (pendingWithPhone.length === 0) {
+      handleSendGroupWhatsApp();
+      return;
+    }
+    pendingWithPhone.forEach((m, idx) => {
+      setTimeout(() => {
+        const msg = buildSplitWhatsAppMessage({
+          friendName: m.name,
+          tripName,
+          amount: perPersonShare,
+          hostName,
+          hostUpi,
+          tone: 'standard'
+        });
+        openWhatsAppDirect(m.phone, msg);
+      }, idx * 700);
+    });
   };
 
   const handleCopySummary = () => {
@@ -834,26 +872,39 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                   </div>
                 )}
 
+                {/* Group WhatsApp Sharing Button (Sabke Liye) */}
                 <button
                   type="button"
-                  onClick={() => {
-                    const firstPending = members.find(m => m.status === 'pending');
-                    handleSendWhatsApp(firstPending || members[1] || members[0]);
-                  }}
-                  className="w-full py-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer font-['Space_Grotesk'] shadow-md shadow-[#25D366]/10"
+                  onClick={handleSendGroupWhatsApp}
+                  className="w-full py-3.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer font-['Space_Grotesk'] shadow-lg shadow-[#25D366]/20 active:scale-95 group"
+                  title="Share full bill breakdown to WhatsApp Group or all friends at once"
                 >
-                  <MessageCircle className="w-4 h-4 fill-current" />
-                  <span>Send WhatsApp Link</span>
+                  <MessageCircle className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" />
+                  <span>📢 Share Full Bill to All (WhatsApp Group)</span>
                 </button>
+
+                {/* Optional Individual Nudge Button if members have phone numbers */}
+                {members.some(m => m.status === 'pending' && m.phone) && (
+                  <button
+                    type="button"
+                    onClick={handleNudgeAllPending}
+                    className="w-full py-2 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 text-[#25D366] text-xs font-mono font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="Send individual WhatsApp message to each friend with a saved phone number"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>Nudge {members.filter(m => m.status === 'pending' && m.phone).length} Pending Friends Individually</span>
+                  </button>
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={handleOpenGeneralQr}
-                    className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-medium border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-medium border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer group"
+                    title="Open Universal QR Code for all friends"
                   >
-                    <QrCode className="w-3.5 h-3.5 text-[#C6FF3D]" />
-                    <span>View QR Code</span>
+                    <QrCode className="w-3.5 h-3.5 text-[#C6FF3D] group-hover:rotate-12 transition-transform" />
+                    <span>View QR Code (All)</span>
                   </button>
 
                   <button
@@ -895,112 +946,212 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
       </div>
 
-      {/* Smart UPI QR Code & Payment Confirmation Modal */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-sm p-6 rounded-3xl bg-[#121324] border border-white/15 shadow-2xl space-y-4 text-center relative animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => {
-                sound.playClick();
-                setShowQrModal(false);
-              }}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-white/50 hover:text-white transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+      {/* Universal Squad UPI QR Code & Payment Confirmation Modal */}
+      {showQrModal && (() => {
+        const activeQrTarget = qrSelectedMemberId === 'all'
+          ? null
+          : members.find(m => m.id.toString() === qrSelectedMemberId);
+        const qrAmountToPay = perPersonShare > 0 ? perPersonShare : (numAmount > 0 ? numAmount : 0);
+        const qrUpiLink = `upi://pay?pa=${hostUpi}&pn=${encodeURIComponent(hostName || 'SplitPay')}&am=${qrAmountToPay}&cu=INR&tn=${encodeURIComponent(tripName || 'SplitPay Bill')}`;
 
-            {/* Modal Header */}
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#C6FF3D]/10 border border-[#C6FF3D]/30 text-[#C6FF3D] font-mono text-[11px]">
-                <QrCode className="w-3 h-3" />
-                <span>UPI DIRECT PAYMENT</span>
-              </div>
-              <h3 className="text-xl font-bold text-white font-['Space_Grotesk']">
-                Pay Bill Share
-              </h3>
-              <p className="text-xs text-white/60">
-                Paying for <strong className="text-white font-bold">{qrTargetMember?.name || 'Friend'}</strong> • ₹{perPersonShare > 0 ? perPersonShare.toLocaleString('en-IN') : '00'}
-              </p>
-            </div>
-
-            {/* QR Code Container */}
-            <div className="p-3.5 rounded-2xl bg-white w-48 h-48 mx-auto flex items-center justify-center shadow-lg relative group">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`upi://pay?pa=${hostUpi}&pn=${encodeURIComponent(hostName)}&am=${perPersonShare}&cu=INR&tn=${encodeURIComponent(tripName)}`)}`}
-                alt="UPI QR Code"
-                className="w-full h-full object-contain"
-              />
-              {qrPaymentStatus === 'received' && (
-                <div className="absolute inset-0 bg-[#0B0C16]/90 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center space-y-2 animate-in fade-in duration-200 text-[#C6FF3D]">
-                  <CheckCircle2 className="w-14 h-14 text-[#C6FF3D] animate-bounce" />
-                  <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">PAYMENT CONFIRMED</span>
-                </div>
-              )}
-            </div>
-
-            {/* UPI ID Row */}
-            <div className="p-2.5 rounded-xl bg-[#0B0C16] border border-white/10 text-xs font-mono text-white/70 flex items-center justify-between">
-              <span className="truncate">UPI ID: <strong className="text-white font-bold">{hostUpi}</strong></span>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-sm p-6 rounded-3xl bg-[#121324] border border-white/15 shadow-2xl space-y-4 text-center relative animate-in zoom-in-95 duration-200">
               <button
-                type="button"
                 onClick={() => {
                   sound.playClick();
-                  if (navigator.clipboard) navigator.clipboard.writeText(hostUpi);
+                  setShowQrModal(false);
                 }}
-                className="text-[11px] text-[#C6FF3D] hover:underline shrink-0 ml-2 cursor-pointer font-bold"
+                className="absolute top-4 right-4 p-1.5 rounded-lg text-white/50 hover:text-white transition-colors cursor-pointer"
               >
-                Copy
+                <X className="w-4 h-4" />
               </button>
-            </div>
 
-            {/* Mobile 1-Tap UPI Deep Link */}
-            <a
-              href={`upi://pay?pa=${hostUpi}&pn=${encodeURIComponent(hostName)}&am=${perPersonShare}&cu=INR&tn=${encodeURIComponent(tripName)}`}
-              onClick={() => sound.playClick()}
-              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium text-xs border border-white/10 flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <span>Open in UPI App (GPay / PhonePe / Paytm)</span>
-            </a>
-
-            {/* Payment Action: Explicit Confirmation */}
-            {qrPaymentStatus === 'waiting' ? (
-              <div className="space-y-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => handleConfirmPayment(qrTargetMember)}
-                  className="w-full py-3 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs sm:text-sm font-['Space_Grotesk'] transition-all active:scale-95 cursor-pointer shadow-lg shadow-[#C6FF3D]/15 flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Confirm ₹{perPersonShare.toLocaleString('en-IN')} Received</span>
-                </button>
-                <p className="text-[10px] text-white/40 font-mono">
-                  Status changes to Paid only after payment is confirmed.
+              {/* Modal Header */}
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#C6FF3D]/10 border border-[#C6FF3D]/30 text-[#C6FF3D] font-mono text-[11px]">
+                  <QrCode className="w-3 h-3" />
+                  <span>{qrSelectedMemberId === 'all' ? 'SQUAD UPI QR (ALL MEMBERS)' : 'MEMBER SPECIFIC UPI QR'}</span>
+                </div>
+                <h3 className="text-xl font-bold text-white font-['Space_Grotesk']">
+                  {qrSelectedMemberId === 'all' ? 'Pay Bill Share (Sabhi Ke Liye)' : `Pay for ${activeQrTarget?.name || 'Member'}`}
+                </h3>
+                <p className="text-xs text-white/60">
+                  {qrSelectedMemberId === 'all' ? (
+                    <>Scan &amp; pay per-person share: <strong className="text-[#C6FF3D] font-bold font-mono">₹{qrAmountToPay.toLocaleString('en-IN')}</strong> each</>
+                  ) : (
+                    <>Paying for <strong className="text-white font-bold">{activeQrTarget?.name}</strong> • ₹{qrAmountToPay.toLocaleString('en-IN')}</>
+                  )}
                 </p>
               </div>
-            ) : (
-              <div className="p-3.5 rounded-xl bg-[#25D366]/15 border border-[#25D366]/40 text-center space-y-1 animate-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-center gap-1.5 text-[#25D366] font-bold text-sm font-['Space_Grotesk']">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Payment Successfully Recorded!</span>
-                </div>
-                <div className="text-[11px] text-white/80 font-mono">
-                  ₹{perPersonShare.toLocaleString('en-IN')} from {qrTargetMember?.name} verified • Updated in bill
-                </div>
-              </div>
-            )}
 
-            <button
-              onClick={() => {
-                sound.playClick();
-                setShowQrModal(false);
-              }}
-              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs font-medium transition-colors cursor-pointer"
-            >
-              {qrPaymentStatus === 'received' ? 'Done & Return to Bill' : 'Close (Keep Pending)'}
-            </button>
+              {/* QR Scope / Member Selector */}
+              <div className="p-2.5 rounded-xl bg-[#0B0C16] border border-white/10 text-left space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono text-white/50">YE QR CODE KISKE LIYE HAI:</span>
+                  <span className="text-[10px] font-mono text-[#C6FF3D] font-bold">
+                    {qrSelectedMemberId === 'all' ? '✨ Sabhi Ke Liye' : activeQrTarget?.name}
+                  </span>
+                </div>
+                <select
+                  value={qrSelectedMemberId}
+                  onChange={(e) => {
+                    sound.playClick();
+                    const val = e.target.value;
+                    setQrSelectedMemberId(val);
+                    if (val === 'all') {
+                      setQrTargetMember(null);
+                    } else {
+                      const found = members.find(m => m.id.toString() === val);
+                      setQrTargetMember(found || null);
+                    }
+                  }}
+                  className="w-full px-2.5 py-2 rounded-lg bg-white/5 border border-white/15 text-white text-xs font-mono focus:border-[#C6FF3D] focus:outline-none cursor-pointer"
+                >
+                  <option value="all" className="bg-[#121324] text-[#C6FF3D] font-bold">
+                    ✨ Sabhi Dosto Ke Liye (Per Person: ₹{qrAmountToPay.toLocaleString('en-IN')})
+                  </option>
+                  {members.map(m => (
+                    <option key={m.id} value={m.id.toString()} className="bg-[#121324] text-white">
+                      {m.name} {m.isHost ? '(Host)' : ''} — ₹{qrAmountToPay.toLocaleString('en-IN')} ({m.status === 'paid' ? 'Paid ✓' : 'Pending'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* QR Code Container */}
+              <div className="p-3.5 rounded-2xl bg-white w-48 h-48 mx-auto flex items-center justify-center shadow-lg relative group">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUpiLink)}`}
+                  alt="UPI QR Code"
+                  className="w-full h-full object-contain"
+                />
+                {qrPaymentStatus === 'received' && (
+                  <div className="absolute inset-0 bg-[#0B0C16]/90 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center space-y-2 animate-in fade-in duration-200 text-[#C6FF3D]">
+                    <CheckCircle2 className="w-14 h-14 text-[#C6FF3D] animate-bounce" />
+                    <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">PAYMENT RECORDED</span>
+                  </div>
+                )}
+              </div>
+
+              {/* UPI ID Row */}
+              <div className="p-2.5 rounded-xl bg-[#0B0C16] border border-white/10 text-xs font-mono text-white/70 flex items-center justify-between">
+                <span className="truncate">UPI: <strong className="text-white font-bold">{hostUpi || 'Please enter Receiving UPI'}</strong></span>
+                {hostUpi && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      if (navigator.clipboard) navigator.clipboard.writeText(hostUpi);
+                    }}
+                    className="text-[11px] text-[#C6FF3D] hover:underline shrink-0 ml-2 cursor-pointer font-bold"
+                  >
+                    Copy
+                  </button>
+                )}
+              </div>
+
+              {/* Mobile 1-Tap UPI Deep Link */}
+              {hostUpi ? (
+                <a
+                  href={qrUpiLink}
+                  onClick={() => sound.playClick()}
+                  className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium text-xs border border-white/10 flex items-center justify-center gap-2 transition-colors cursor-pointer font-mono"
+                >
+                  <span>Open in UPI App (GPay / PhonePe / Paytm)</span>
+                </a>
+              ) : (
+                <p className="text-[11px] text-amber-400 font-mono">
+                  ⚠️ Please enter your receiving UPI ID in the splitter above.
+                </p>
+              )}
+
+              {/* Payment Action: Confirmation */}
+              {qrPaymentStatus === 'waiting' ? (
+                <div className="space-y-2 pt-1">
+                  {qrSelectedMemberId === 'all' ? (
+                    <div className="space-y-2 text-left">
+                      {members.some(m => m.status === 'pending' && !m.isHost) ? (
+                        <>
+                          <span className="text-[10px] font-mono text-white/50 block text-center uppercase tracking-wider">
+                            Kis dost ne pay kiya? Tap to mark paid:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5 justify-center max-h-24 overflow-y-auto p-1">
+                            {members.filter(m => m.status === 'pending').map(pendingM => (
+                              <button
+                                key={pendingM.id}
+                                type="button"
+                                onClick={() => handleConfirmPayment(pendingM)}
+                                className="px-2.5 py-1.5 rounded-lg bg-[#C6FF3D]/15 hover:bg-[#C6FF3D]/30 border border-[#C6FF3D]/40 text-[#C6FF3D] text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>{pendingM.name} Paid ✓</span>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="p-2 rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 text-[#25D366] text-xs font-mono font-bold text-center">
+                          ✓ All Squad Members Paid!
+                        </div>
+                      )}
+
+                      {paidCount < members.length && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleMarkAllSettled();
+                            setShowQrModal(false);
+                          }}
+                          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#C6FF3D] to-[#0082FB] hover:opacity-90 text-[#0B0C16] font-bold text-xs font-['Space_Grotesk'] transition-all active:scale-95 cursor-pointer shadow-lg shadow-[#C6FF3D]/15 flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Mark Entire Bill Settled (All Paid)</span>
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmPayment(activeQrTarget)}
+                        className="w-full py-3 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs sm:text-sm font-['Space_Grotesk'] transition-all active:scale-95 cursor-pointer shadow-lg shadow-[#C6FF3D]/15 flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Confirm ₹{qrAmountToPay.toLocaleString('en-IN')} from {activeQrTarget?.name} Received</span>
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-white/40 font-mono text-center">
+                    Status changes to Paid only after payment confirmation.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-[#25D366]/15 border border-[#25D366]/40 text-center space-y-1 animate-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-center gap-1.5 text-[#25D366] font-bold text-sm font-['Space_Grotesk']">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Payment Successfully Recorded!</span>
+                  </div>
+                  <div className="text-[11px] text-white/80 font-mono">
+                    Updated in live bill and user dashboard
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowQrModal(false);
+                }}
+                className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs font-medium transition-colors cursor-pointer"
+              >
+                {qrPaymentStatus === 'received' ? 'Done & Return to Bill' : 'Close Modal'}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
 
       {/* Floating Real-Time UPI Soundbox Payment Notification Toast */}
       {paymentToast && (

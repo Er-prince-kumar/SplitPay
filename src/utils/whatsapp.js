@@ -73,6 +73,43 @@ export const buildSplitWhatsAppMessage = ({
 };
 
 /**
+ * Builds comprehensive Group WhatsApp split message for the entire squad / WhatsApp Group
+ */
+export const buildGroupSplitWhatsAppMessage = ({
+  tripName = 'Group Split',
+  totalAmount = 0,
+  perPersonShare = 0,
+  hostName = 'Host',
+  hostUpi = '',
+  members = []
+}) => {
+  const formattedTotal = Number(totalAmount).toLocaleString('en-IN');
+  const formattedShare = Number(perPersonShare).toLocaleString('en-IN');
+  const upiLink = hostUpi 
+    ? `upi://pay?pa=${hostUpi}&pn=${encodeURIComponent(hostName)}&am=${perPersonShare}&cu=INR&tn=${encodeURIComponent(tripName || 'SplitPay')}`
+    : '';
+
+  const memberLines = members.map((m, idx) => {
+    const isPaid = m.status === 'paid';
+    return `${idx + 1}. ${m.name}: *₹${formattedShare}* ${isPaid ? '✅ (Paid)' : '⏳ (Pending)'}`;
+  }).join('\n');
+
+  let text = `📢 *SplitPay Bill Breakdown: ${tripName || 'Group Split'}* 💸\n\n`;
+  text += `💰 *Total Bill*: ₹${formattedTotal}\n`;
+  text += `👥 *Total Squad Members*: ${members.length}\n`;
+  text += `👉 *Per Person Share*: *₹${formattedShare} each*\n\n`;
+  text += `📋 *Member Status:*\n${memberLines}\n\n`;
+  text += `⚡ *How to Pay (Direct UPI to Host):*\n`;
+  text += `👤 Host: *${hostName}*\n`;
+  text += `💳 UPI ID: *${hostUpi || 'Pending'}*\n`;
+  if (upiLink) {
+    text += `🔗 *1-Tap UPI Payment Link*:\n${upiLink}\n\n`;
+  }
+  text += `Sabhi log apna share jaldi settle kardo bhai! 🙏\nPowered by SplitPay ⚡`;
+  return text;
+};
+
+/**
  * Returns wa.me link with encoded message
  */
 export const getWhatsAppUrl = (phone, message) => {
