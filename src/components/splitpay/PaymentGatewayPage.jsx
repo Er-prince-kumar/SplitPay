@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';
-import { broadcastPaymentSettled } from '../../utils/paymentSync';
+import { broadcastPaymentSettled, broadcastPaymentClaimed, subscribeToTripSettlement } from '../../utils/paymentSync';
 
 const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
   const {
@@ -188,6 +188,17 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
     }
   };
 
+  const validateUtr = (val) => {
+    const clean = (val || '').replace(/\D/g, '').trim();
+    if (clean.length !== 12) {
+      return { isValid: false, error: '⚠️ Kripya 12-digit valid UPI UTR / Ref number enter karein (e.g. 424109182391)' };
+    }
+    if (/^(\d)\1{11}$/.test(clean)) {
+      return { isValid: false, error: '⚠️ Dummy ya invalid UTR number nahi chalega. PhonePe/GPay receipt se actual 12-digit UTR dalein' };
+    }
+    return { isValid: true, clean };
+  };
+
   const handleConfirmSuccess = (customRef) => {
     sound.playUpiSuccess();
     sound.speakUpiReceived(numAmount, friend);
@@ -203,7 +214,7 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
     setPaymentTimestamp(new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }));
     setPaymentStatus('success');
 
-    // Record verified transaction in localStorage so Host dashboard automatically updates
+    // Record verified transaction in localStorage
     try {
       const storedAct = localStorage.getItem('splitpay_payment_activity');
       const actList = storedAct ? JSON.parse(storedAct) : [];
@@ -214,7 +225,7 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
         tripName: trip,
         ref: ref,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: 'Verified (Gateway)'
+        status: 'Verified (Host Approved)'
       });
       localStorage.setItem('splitpay_payment_activity', JSON.stringify(actList.slice(0, 15)));
 
@@ -233,7 +244,6 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
         }
       }
 
-      // Broadcast real-time payment event to host dashboard across internet via ntfy.sh SSE + local BroadcastChannel
       broadcastPaymentSettled({
         host: cleanHost,
         trip: trip,
@@ -246,51 +256,130 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
     } catch (e) {}
   };
 
+  const handleClaimPayment = (customRef) => {
+    sound.playClick();
+    const ref = customRef.startsWith('UTR') ? customRef : `UTR${customRef}`;
+    setTransactionRef(ref);
+    setPaymentTimestamp(new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }));
+    setPaymentStatus('claimed');
+
+    try {
+      const storedAct = localStorage.getItem('splitpay_payment_activity');
+      const actList = storedAct ? JSON.parse(storedAct) : [];
+      actList.unshift({
+        id: 'gateway-' + Date.now(),
+        payerName: friend,
+        amount: numAmount,
+        tripName: trip,
+        ref: ref,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'Claimed (Pending Host Approval)'
+      });
+      localStorage.setItem('splitpay_payment_activity', JSON.stringify(actList.slice(0, 15)));
+
+      const activeTrip = localStorage.getItem('splitpay_active_trip_v3');
+      if (activeTrip) {
+        const parsed = JSON.parse(activeTrip);
+        if (parsed && Array.isArray(parsed.members)) {
+          parsed.members = parsed.members.map(m => {
+            if (m.name.toLowerCase().includes(friend.toLowerCase()) || friend.toLowerCase().includes(m.name.toLowerCase())) {
+              return { ...m, status: 'claimed', claimedUtr: ref };
+            }
+            return m;
+          });
+          localStorage.setItem('splitpay_active_trip_v3', JSON.stringify(parsed));
+        }
+      }
+
+      broadcastPaymentClaimed({
+        host: cleanHost,
+        trip: trip,
+        payerName: friend,
+        amount: numAmount,
+        utr: ref
+      });
+
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {}
+  };
+
+  // Listen for real-time Host approval or rejection
+  useEffect(() => {
+    const unsubscribe = subscribeToTripSettlement({
+      host: cleanHost,
+      trip: trip,
+      onPaymentSettled: (data) => {
+        if (
+          data.payerName &&
+          (data.payerName.toLowerCase().includes(friend.toLowerCase()) ||
+           friend.toLowerCase().includes(data.payerName.toLowerCase()))
+        ) {
+          handleConfirmSuccess(data.ref);
+        }
+      },
+      onPaymentRejected: (data) => {
+        if (
+          data.payerName &&
+          (data.payerName.toLowerCase().includes(friend.toLowerCase()) ||
+           friend.toLowerCase().includes(data.payerName.toLowerCase()))
+        ) {
+          setPaymentStatus('idle');
+          setCancelNotice(true);
+          setReturnUtrError('⚠️ Host ne payment claim reject kar diya (Paisa bank account me verify nahi hua). Kripya sahi payment karein.');
+        }
+      }
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [cleanHost, trip, friend]);
+
   const handleManualVerifyClick = () => {
-    const clean = utrNumber.replace(/\D/g, '').trim();
-    if (clean.length < 6) {
+    const val = validateUtr(utrNumber);
+    if (!val.isValid) {
       sound.playClick();
       setShowReturnPrompt(true);
       setReturnStep('enterUtr');
-      setReturnUtrError('⚠️ Bina payment proof (12-digit UTR No.) ke verify nahi ho sakta. Kripya PhonePe/GPay receipt se 12-digit UTR enter karein.');
+      setReturnUtrError(val.error);
       return;
     }
     sound.playClick();
     setPaymentStatus('verifying');
     setUtrError('');
     setTimeout(() => {
-      handleConfirmSuccess(`UTR${clean}`);
+      handleClaimPayment(`UTR${val.clean}`);
     }, 1200);
   };
 
   const handleVerifyByUtr = () => {
-    const clean = utrNumber.replace(/\D/g, '').trim();
-    if (clean.length < 6) {
+    const val = validateUtr(utrNumber);
+    if (!val.isValid) {
       sound.playClick();
-      setUtrError('⚠️ Kripya 6 se 16 digit ka valid UPI UTR / Ref No. enter karein');
+      setUtrError(val.error);
       return;
     }
     sound.playClick();
     setPaymentStatus('verifying');
     setUtrError('');
     setTimeout(() => {
-      handleConfirmSuccess(`UTR${clean}`);
+      handleClaimPayment(`UTR${val.clean}`);
     }, 1200);
   };
 
   const handleConfirmReturnWithUtr = () => {
-    const clean = returnUtr.replace(/\D/g, '').trim();
-    if (clean.length < 6) {
+    const val = validateUtr(returnUtr);
+    if (!val.isValid) {
       sound.playClick();
-      setReturnUtrError('⚠️ Kripya PhonePe/GPay receipt se valid 12-digit UTR No. enter karein');
+      setReturnUtrError(val.error);
       return;
     }
     sound.playClick();
     setShowReturnPrompt(false);
     setPaymentStatus('verifying');
-    setUtrNumber(clean);
+    setUtrNumber(val.clean);
     setTimeout(() => {
-      handleConfirmSuccess(`UTR${clean}`);
+      handleClaimPayment(`UTR${val.clean}`);
     }, 1200);
   };
 
@@ -331,7 +420,92 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
       {/* Main Payment Gateway Area */}
       <main className="flex-1 max-w-xl w-full mx-auto p-4 sm:p-6 my-auto z-10 space-y-5">
         
-        {paymentStatus === 'success' ? (
+        {paymentStatus === 'claimed' ? (
+          /* Payment Claim Submitted Card (Pending Host Verification) */
+          <div className="p-6 sm:p-8 rounded-3xl bg-[#121324] border border-[#0082FB]/40 shadow-2xl shadow-[#0082FB]/15 space-y-6 text-center animate-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-[#0082FB]/20 border border-[#0082FB]/50 flex items-center justify-center text-[#0082FB]">
+              <Clock className="w-10 h-10 animate-pulse" />
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="text-xs font-mono uppercase tracking-widest text-[#0082FB] font-bold flex items-center justify-center gap-1.5">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Payment Claim Submitted ⏳</span>
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-white font-['Space_Grotesk']">
+                ₹{formattedAmount} Awaiting Approval
+              </h2>
+              <p className="text-xs text-white/70 font-mono">
+                Proof Host <strong className="text-white">{cleanHost}</strong> ke dashboard par bhej diya gaya hai
+              </p>
+            </div>
+
+            {/* Claim Details */}
+            <div className="p-4 rounded-2xl bg-[#0B0C16] border border-white/10 text-left space-y-2.5 text-xs font-mono">
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-white/50">Submitted 12-Digit UTR:</span>
+                <span className="text-[#C6FF3D] font-bold font-mono">{transactionRef}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-white/50">Payer Name:</span>
+                <span className="text-white font-bold">{friend}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-white/50">Beneficiary (Host):</span>
+                <span className="text-white font-bold">{cleanHost}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-white/50">Receiving UPI ID:</span>
+                <span className="text-white/90">{cleanUpi}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-white/50">Claim Time:</span>
+                <span className="text-white/80">{paymentTimestamp}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/50">Current Status:</span>
+                <span className="text-amber-400 font-bold flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Pending Host Bank Verification</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Host Notice Box */}
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-left text-xs font-mono text-amber-200/90 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                <Info className="w-4 h-4 shrink-0" />
+                <span>Host Verification Policy (Zero Fraud)</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-white/70">
+                Direct UPI transfers me bank notification Host ke personal account/SMS me aati hai. Jaise hi Host apne account me ₹{formattedAmount} credit check karke <strong>"Approve"</strong> karega, ye receipt automatically <strong>"Settled ✓"</strong> ho jayegi.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(
+                  `Hi ${cleanHost}! Maine SplitPay par ${trip} ke liye ₹${formattedAmount} transfer kar diya hai.\n\n12-Digit UTR: ${transactionRef}\nTimestamp: ${paymentTimestamp}\n\nKripya apne bank me credit check karke SplitPay dashboard par approve kar dein! 🙏`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-xs font-mono transition-all active:scale-95 cursor-pointer shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Nudge Host on WhatsApp</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={onBackToApp}
+                className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs font-mono transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>Return to SplitPay</span>
+                <ExternalLink className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ) : paymentStatus === 'success' ? (
           /* Payment Verified Receipt Card */
           <div className="p-6 sm:p-8 rounded-3xl bg-[#121324] border border-[#25D366]/40 shadow-2xl shadow-[#25D366]/15 space-y-6 text-center animate-in zoom-in-95 duration-300">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-[#25D366]/20 border border-[#25D366]/50 flex items-center justify-center text-[#25D366]">
@@ -856,7 +1030,7 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                 className="w-full py-3.5 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-black text-sm font-['Space_Grotesk'] flex items-center justify-center gap-2 cursor-pointer shadow-xl shadow-[#25D366]/20 active:scale-95 transition-all"
               >
                 <CheckCircle2 className="w-4 h-4 text-[#0B0C16]" />
-                <span>I Have Paid ₹{formattedAmount} (Auto-Verify Now) ⚡</span>
+                <span>I Have Paid ₹{formattedAmount} (Submit 12-Digit UTR Proof) ⚡</span>
               </button>
 
               {/* 12-Digit UTR Input */}
@@ -864,9 +1038,10 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                 <input
                   type="text"
                   placeholder="Enter 12-digit UPI Ref / UTR No. from receipt"
+                  maxLength={12}
                   value={utrNumber}
                   onChange={(e) => {
-                    setUtrNumber(e.target.value.replace(/\D/g, ''));
+                    setUtrNumber(e.target.value.replace(/\D/g, '').slice(0, 12));
                     setUtrError('');
                   }}
                   className="flex-1 bg-transparent text-white text-xs font-mono placeholder:text-white/30 focus:outline-none"
@@ -876,7 +1051,7 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                   onClick={handleVerifyByUtr}
                   className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-mono font-medium transition-colors cursor-pointer shrink-0"
                 >
-                  Verify UTR
+                  Submit UTR
                 </button>
               </div>
               {utrError && (
@@ -992,10 +1167,10 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                     <input
                       type="text"
                       placeholder="e.g. 424109182391"
-                      maxLength={16}
+                      maxLength={12}
                       value={returnUtr}
                       onChange={(e) => {
-                        setReturnUtr(e.target.value.replace(/\D/g, ''));
+                        setReturnUtr(e.target.value.replace(/\D/g, '').slice(0, 12));
                         setReturnUtrError('');
                       }}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/20 text-white font-mono text-sm focus:border-[#C6FF3D] focus:outline-none"
@@ -1013,7 +1188,7 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                       className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#C6FF3D] to-[#25D366] text-[#0B0C16] font-bold text-sm font-['Space_Grotesk'] flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#C6FF3D]/25 active:scale-95 transition-all"
                     >
                       <Zap className="w-4 h-4 fill-current" />
-                      <span>Verify &amp; Auto-Settle Payment ⚡</span>
+                      <span>Submit 12-Digit UTR for Host Verification ⚡</span>
                     </button>
 
                     <div className="flex gap-2">

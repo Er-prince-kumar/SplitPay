@@ -30,7 +30,7 @@ import {
   buildGroupSplitWhatsAppMessage,
   openWhatsAppDirect 
 } from '../../utils/whatsapp';
-import { subscribeToTripSettlement } from '../../utils/paymentSync';
+import { subscribeToTripSettlement, broadcastPaymentSettled, broadcastPaymentRejected } from '../../utils/paymentSync';
 
 const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   // Helper to load initial saved trip from localStorage
@@ -101,6 +101,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   const [paymentAppOpened, setPaymentAppOpened] = useState(false);
   const [enteredUtr, setEnteredUtr] = useState('');
   const [utrError, setUtrError] = useState('');
+  const [pendingClaims, setPendingClaims] = useState([]);
 
   const getInitialMembers = () => {
     if (initialData?.members && Array.isArray(initialData.members) && initialData.members.length > 0) {
@@ -329,7 +330,6 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       setIsVerifyingPayment(false);
     }, 1800);
   };
-
   // Host manually confirms cash received with confirmation dialog
   const handleManualCashSettle = (member) => {
     sound.playClick();
@@ -338,12 +338,69 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }
   };
 
+  const validateUtrStrict = (val) => {
+    const clean = (val || '').replace(/\D/g, '').trim();
+    if (clean.length !== 12) {
+      return { isValid: false, error: '⚠️ Kripya valid 12-digit UPI UTR number enter karein (e.g. 424109182391)' };
+    }
+    if (/^(\d)\1{11}$/.test(clean)) {
+      return { isValid: false, error: '⚠️ Dummy ya invalid UTR number nahi chalega. PhonePe/GPay receipt se actual 12-digit UTR dalein' };
+    }
+    return { isValid: true, clean };
+  };
+
+  const handleApproveClaim = (claimOrMember) => {
+    sound.playClick();
+    const payerName = claimOrMember.payerName || claimOrMember.name;
+    const utr = claimOrMember.utr || claimOrMember.claimedUtr || `UTR${Date.now()}`;
+    const target = members.find(m => 
+      m.name.toLowerCase().includes(payerName.toLowerCase()) || 
+      payerName.toLowerCase().includes(m.name.toLowerCase())
+    );
+
+    if (target) {
+      const cleanUtr = utr.startsWith('UTR') ? utr : `UTR${utr}`;
+      handleConfirmPayment(target, cleanUtr);
+      setPendingClaims(prev => prev.filter(c => c.utr !== utr && c.payerName !== payerName));
+      broadcastPaymentSettled({
+        host: currentUser?.name || 'Prince',
+        trip: tripName || 'Group Split',
+        payerName: target.name,
+        amount: perPersonShare,
+        ref: cleanUtr
+      });
+    }
+  };
+
+  const handleRejectClaim = (claimOrMember) => {
+    sound.playClick();
+    const payerName = claimOrMember.payerName || claimOrMember.name;
+    const utr = claimOrMember.utr || claimOrMember.claimedUtr || '';
+
+    setMembers(prev => prev.map(m => {
+      if (m.name.toLowerCase().includes(payerName.toLowerCase()) || payerName.toLowerCase().includes(m.name.toLowerCase())) {
+        return { ...m, status: 'pending', claimedUtr: null };
+      }
+      return m;
+    }));
+
+    setPendingClaims(prev => prev.filter(c => c.utr !== utr && c.payerName !== payerName));
+
+    broadcastPaymentRejected({
+      host: currentUser?.name || 'Prince',
+      trip: tripName || 'Group Split',
+      payerName: payerName,
+      amount: perPersonShare,
+      ref: utr
+    });
+  };
+
   // Automated banking verification: strictly requires 12-digit UTR from payment receipt
   const handleAutoVerifyPayment = () => {
-    const cleanUtr = (enteredUtr || '').replace(/\D/g, '').trim();
-    if (cleanUtr.length < 6) {
+    const val = validateUtrStrict(enteredUtr);
+    if (!val.isValid) {
       sound.playClick();
-      setUtrError('⚠️ Bina payment receipt UTR number ke verify nahi ho sakta. Kripya 12-digit UTR enter karein.');
+      setUtrError(val.error);
       return;
     }
     sound.playClick();
@@ -356,7 +413,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
         : members.find(m => m.id.toString() === qrSelectedMemberId);
       
       if (target) {
-        handleConfirmPayment(target, `UTR${cleanUtr}`);
+        handleConfirmPayment(target, `UTR${val.clean}`);
       } else {
         sound.playUpiSuccess();
         setQrPaymentStatus('received');
@@ -368,10 +425,10 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   // Instant verification using 12-digit UPI UTR / Reference No.
   const handleVerifyByUtr = () => {
-    const cleanUtr = (enteredUtr || '').replace(/\D/g, '').trim();
-    if (cleanUtr.length < 6) {
+    const val = validateUtrStrict(enteredUtr);
+    if (!val.isValid) {
       sound.playClick();
-      setUtrError('⚠️ Kripya PhonePe/GPay receipt se 6 se 16 digit ka UPI UTR / Ref No. enter karein');
+      setUtrError(val.error);
       return;
     }
     sound.playClick();
@@ -384,7 +441,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
         : members.find(m => m.id.toString() === qrSelectedMemberId);
       
       if (target) {
-        handleConfirmPayment(target, `UTR${cleanUtr}`);
+        handleConfirmPayment(target, `UTR${val.clean}`);
       } else {
         sound.playUpiSuccess();
         setQrPaymentStatus('received');
@@ -397,47 +454,71 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   // When user returns from UPI app, clear opened state
   useEffect(() => {
     const handleReturnFromUpi = () => {
-      if (document.visibilityState === 'visible' && paymentAppOpened && showQrModal && qrPaymentStatus === 'waiting') {
-        setPaymentAppOpened(false);
+      if (document.visibilityState === 'visible' && paymentAppOpened) {
+        // Keep prompt active so user can enter UTR
       }
     };
-
     document.addEventListener('visibilitychange', handleReturnFromUpi);
     window.addEventListener('focus', handleReturnFromUpi);
     return () => {
       document.removeEventListener('visibilitychange', handleReturnFromUpi);
       window.removeEventListener('focus', handleReturnFromUpi);
     };
-  }, [paymentAppOpened, showQrModal, qrPaymentStatus]);
+  }, [paymentAppOpened]);
 
-  // Real-time automatic payment settlement engine:
-  // Listens for confirmed payments from the Payment Gateway (via ntfy.sh SSE across internet + local BroadcastChannel)
-  // Automatically speaks Soundbox voice, launches confetti, and marks the squad member as settled!
+  // Real-time Payment Synchronization with Payment Gateway
+  // Automatically receives payment claims and verified settlements
   useEffect(() => {
     const hostName = currentUser?.name || 'Prince';
     const unsubscribe = subscribeToTripSettlement({
       host: hostName,
       trip: tripName || 'Group Split',
-      onPaymentSettled: (data) => {
-        const { payerName, amount: pAmount, ref: pRef } = data;
+      onPaymentClaimed: (data) => {
+        const { payerName, amount: pAmount, utr: pUtr } = data;
+        sound.playClick();
         setMembers(prev => {
           const target = prev.find(m => 
             (m.status === 'pending' || !m.status) &&
             (m.name.toLowerCase().includes(payerName.toLowerCase()) || payerName.toLowerCase().includes(m.name.toLowerCase()))
           );
           if (target) {
+            return prev.map(m => m.id === target.id ? { ...m, status: 'claimed', claimedUtr: pUtr } : m);
+          }
+          return prev;
+        });
+
+        setPendingClaims(prev => {
+          if (prev.some(c => c.utr === pUtr)) return prev;
+          return [{
+            id: 'claim-' + Date.now(),
+            payerName,
+            amount: pAmount || perPersonShare,
+            utr: pUtr,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }, ...prev];
+        });
+      },
+      onPaymentSettled: (data) => {
+        const { payerName, amount: pAmount, ref: pRef } = data;
+        setMembers(prev => {
+          const target = prev.find(m => 
+            (m.status === 'pending' || m.status === 'claimed' || !m.status) &&
+            (m.name.toLowerCase().includes(payerName.toLowerCase()) || payerName.toLowerCase().includes(m.name.toLowerCase()))
+          );
+          if (target) {
             sound.playUpiSuccess();
-            sound.speakUpiReceived(pAmount || target.share, target.name);
+            sound.speakUpiReceived(pAmount || target.share || perPersonShare, target.name);
             confetti({ particleCount: 75, spread: 70, origin: { y: 0.6 } });
             setPaymentToast({
               name: target.name,
-              amount: pAmount || target.share,
+              amount: pAmount || target.share || perPersonShare,
               ref: pRef
             });
             return prev.map(m => m.id === target.id ? { ...m, status: 'paid', verifiedUtr: pRef } : m);
           }
           return prev;
         });
+        setPendingClaims(prev => prev.filter(c => c.utr !== pRef && c.payerName !== payerName));
       }
     });
 
@@ -792,6 +873,61 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                 </div>
               </div>
 
+              {/* Host Payment Verification Banner */}
+              {pendingClaims.length > 0 && (
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-[#0082FB]/15 to-[#25D366]/15 border border-amber-400/40 shadow-xl space-y-3 animate-in slide-in-from-top duration-300">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-mono font-bold text-amber-300">
+                      <AlertCircle className="w-4 h-4 text-amber-400" />
+                      <span>PAYMENT CLAIM APPROVAL REQUIRED ({pendingClaims.length})</span>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30">
+                      Check Bank SMS
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {pendingClaims.map((claim) => (
+                      <div
+                        key={claim.id}
+                        className="p-3 rounded-xl bg-black/50 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-bold text-sm font-['Space_Grotesk']">
+                              {claim.payerName}
+                            </span>
+                            <span className="text-[10px] text-white/50">claims paid</span>
+                            <span className="text-[#C6FF3D] font-bold text-sm font-mono">
+                              ₹{claim.amount.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-white/60 pt-0.5">
+                            UTR: <strong className="text-white">{claim.utr}</strong> &bull; {claim.time}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleApproveClaim(claim)}
+                            className="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-xs flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95 shadow-md shadow-[#25D366]/20"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Paisa Aa Gaya (Approve ✓)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRejectClaim(claim)}
+                            className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-white/60 hover:text-red-400 border border-white/10 hover:border-red-500/30 text-xs cursor-pointer transition-colors"
+                          >
+                            <span>Nahi Aaya (Reject ✕)</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Members List */}
               <div className="space-y-2">
                 {members.map((member) => (
@@ -907,6 +1043,35 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                             <CheckCircle2 className="w-3.5 h-3.5 text-[#C6FF3D]" />
                             <span>{member.isHost ? "Paid (Host)" : "Settled ✓"}</span>
                           </span>
+                        </div>
+                      ) : member.status === 'claimed' ? (
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-medium flex items-center gap-1.5 bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                            title={member.claimedUtr ? `Claimed UTR: ${member.claimedUtr}` : "Payment Claimed"}
+                          >
+                            <Clock className="w-3 h-3 text-blue-400" />
+                            <span>Claimed ({member.claimedUtr ? member.claimedUtr.slice(-6) : 'Proof'})</span>
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleApproveClaim(member)}
+                            className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-[#25D366] text-[#0B0C16] hover:bg-[#20bd5a] transition-all cursor-pointer flex items-center gap-1 shadow-sm active:scale-95"
+                            title="Bank me credit verify karke approve karein"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Approve ✓</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRejectClaim(member)}
+                            className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-white/5 text-white/60 hover:text-red-400 border border-white/10 hover:border-red-500/30 transition-all cursor-pointer active:scale-95"
+                            title="Reject unverified claim"
+                          >
+                            <span>Reject ✕</span>
+                          </button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5">
@@ -1250,30 +1415,31 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
               {/* Real-time Automated Payment Verification Engine */}
               {qrPaymentStatus === 'waiting' ? (
                 <div className="space-y-3 pt-1">
-                  {/* When user returned from UPI app, offer 1-tap immediate settlement */}
+                  {/* When user returned from UPI app, prompt entering 12-digit UTR */}
                   {paymentAppOpened && (
                     <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#C6FF3D]/15 to-[#0082FB]/15 border border-[#C6FF3D]/40 space-y-2 text-left animate-in fade-in">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#C6FF3D]">
                           <Sparkles className="w-4 h-4 text-[#C6FF3D]" />
-                          <span>UPI APP SE RETURN AAYE HAIN</span>
+                          <span>UPI APP SE WAPAS AAYE HAIN</span>
                         </div>
-                        <span className="text-[10px] font-mono text-white/50">Auto-Settle</span>
+                        <span className="text-[10px] font-mono text-white/50">UTR Proof Required</span>
                       </div>
                       <p className="text-[11px] text-white/80 font-mono leading-relaxed">
-                        Payment complete ho gaya hai? Abhi 1-tap me automatically settle karein:
+                        Payment complete ho gaya hai? Niche PhonePe/GPay receipt se 12-digit UTR number enter karke verify karein:
                       </p>
                       <div className="flex gap-2 pt-1">
                         <button
                           type="button"
                           onClick={() => {
                             setPaymentAppOpened(false);
-                            handleAutoVerifyPayment();
+                            const el = document.getElementById('qr-modal-utr-input');
+                            if (el) el.focus();
                           }}
                           className="flex-1 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-xs font-['Space_Grotesk'] flex items-center justify-center gap-1.5 cursor-pointer shadow-md active:scale-95 transition-all"
                         >
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>✓ Auto-Settle Payment Now ⚡</span>
+                          <span>Enter 12-Digit UTR Below ⚡</span>
                         </button>
                         <button
                           type="button"
@@ -1328,16 +1494,17 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                   <div className="p-2.5 rounded-xl bg-[#0B0C16] border border-white/10 space-y-1.5 text-left">
                     <div className="flex items-center justify-between text-[10px] font-mono text-white/50">
                       <span>UPI 12-DIGIT UTR / REF NO. (From Receipt):</span>
-                      <span className="text-[#C6FF3D]">Instant Settle</span>
+                      <span className="text-[#C6FF3D]">Host Verification</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <input
+                        id="qr-modal-utr-input"
                         type="text"
                         placeholder="Enter 12-digit UTR (e.g. 423819283741)"
-                        maxLength={16}
+                        maxLength={12}
                         value={enteredUtr}
                         onChange={(e) => {
-                          setEnteredUtr(e.target.value.replace(/\D/g, ''));
+                          setEnteredUtr(e.target.value.replace(/\D/g, '').slice(0, 12));
                           setUtrError('');
                         }}
                         className="flex-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/15 text-white font-mono text-xs focus:border-[#C6FF3D] focus:outline-none"
