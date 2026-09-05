@@ -34,6 +34,50 @@ const campuses = [
   "Other University / College"
 ];
 
+// Password requirements validator (letters, numbers, special characters, min 6 length)
+export const checkPasswordCriteria = (pwd = '') => {
+  const clean = pwd || '';
+  const hasMinLength = clean.length >= 6;
+  const hasLetter = /[a-zA-Z]/.test(clean);
+  const hasNumber = /[0-9]/.test(clean);
+  const hasSpecial = /[^a-zA-Z0-9\s]/.test(clean);
+
+  const criteria = [
+    { id: 'length', label: 'Min 6 characters', met: hasMinLength },
+    { id: 'letter', label: 'Letters (a-z, A-Z)', met: hasLetter },
+    { id: 'number', label: 'Numbers (0-9)', met: hasNumber },
+    { id: 'special', label: 'Special symbol (!@#$...)', met: hasSpecial },
+  ];
+
+  const metCount = criteria.filter(c => c.met).length;
+  const isValid = hasMinLength && hasLetter && hasNumber && hasSpecial;
+
+  let strengthLabel = 'Weak';
+  let barColor = 'bg-rose-500';
+  if (metCount === 2) {
+    strengthLabel = 'Fair';
+    barColor = 'bg-amber-500';
+  } else if (metCount === 3) {
+    strengthLabel = 'Good';
+    barColor = 'bg-[#0082FB]';
+  } else if (metCount === 4) {
+    strengthLabel = 'Strong';
+    barColor = 'bg-[#C6FF3D]';
+  }
+
+  return {
+    criteria,
+    metCount,
+    isValid,
+    strengthLabel,
+    barColor,
+    hasMinLength,
+    hasLetter,
+    hasNumber,
+    hasSpecial
+  };
+};
+
 const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   // 'login' | 'signup' | 'forgot'
   const [authTab, setAuthTab] = useState('login');
@@ -53,6 +97,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const pwdStatus = checkPasswordCriteria(formData.password);
 
   if (!isOpen) return null;
 
@@ -202,8 +247,20 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         return;
       }
 
-      if (cleanPassword.length < 4) {
-        setErrorMessage("Password must be at least 4 characters long.");
+      // Password validation: combination of letters, numbers, and special characters (min. 6)
+      const pwdCheck = checkPasswordCriteria(cleanPassword);
+      if (!pwdCheck.isValid) {
+        if (!pwdCheck.hasMinLength) {
+          setErrorMessage("Password must be at least 6 characters long.");
+        } else if (!pwdCheck.hasLetter) {
+          setErrorMessage("Password must contain at least one letter (a-z, A-Z).");
+        } else if (!pwdCheck.hasNumber) {
+          setErrorMessage("Password must contain at least one number (0-9).");
+        } else if (!pwdCheck.hasSpecial) {
+          setErrorMessage("Password must contain at least one special character (e.g. !@#$%^&*).");
+        } else {
+          setErrorMessage("Password must be a combination of alphabets, numbers, and special characters.");
+        }
         return;
       }
 
@@ -269,8 +326,20 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
         return;
       }
 
-      if (cleanPassword.length < 4) {
-        setErrorMessage("New password must be at least 4 characters long.");
+      // New password validation: combination of letters, numbers, and special characters (min. 6)
+      const pwdCheck = checkPasswordCriteria(cleanPassword);
+      if (!pwdCheck.isValid) {
+        if (!pwdCheck.hasMinLength) {
+          setErrorMessage("New password must be at least 6 characters long.");
+        } else if (!pwdCheck.hasLetter) {
+          setErrorMessage("New password must contain at least one letter (a-z, A-Z).");
+        } else if (!pwdCheck.hasNumber) {
+          setErrorMessage("New password must contain at least one number (0-9).");
+        } else if (!pwdCheck.hasSpecial) {
+          setErrorMessage("New password must contain at least one special character (e.g. !@#$%^&*).");
+        } else {
+          setErrorMessage("New password must be a combination of alphabets, numbers, and special characters.");
+        }
         return;
       }
 
@@ -638,7 +707,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             </div>
 
             {/* Password */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-white/60 text-[11px]">PASSWORD *</label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
@@ -646,7 +715,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   type={showPassword ? "text" : "password"}
                   name="password"
                   required
-                  placeholder="Create a password (min. 4 characters)"
+                  placeholder="Letters, numbers & special character (min. 6)"
                   value={formData.password}
                   onChange={handleChange}
                   className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
@@ -663,6 +732,47 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+
+              {/* Live Password Criteria & Strength Feedback */}
+              {formData.password.length > 0 && (
+                <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-2 mt-1">
+                  <div className="flex items-center justify-between text-[10px] font-mono">
+                    <span className="text-white/60">
+                      Strength: <span className="font-bold text-white uppercase">{pwdStatus.strengthLabel}</span>
+                    </span>
+                    <span className="text-white/50">{pwdStatus.metCount} of 4 criteria met</span>
+                  </div>
+
+                  {/* Segmented Strength Bar */}
+                  <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden flex gap-1">
+                    {[1, 2, 3, 4].map((step) => (
+                      <div 
+                        key={step} 
+                        className={`h-full flex-1 rounded-full transition-all duration-300 ${
+                          pwdStatus.metCount >= step ? pwdStatus.barColor : 'bg-white/10'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Requirements Badges */}
+                  <div className="grid grid-cols-2 gap-1 pt-0.5 text-[10px] font-mono">
+                    {pwdStatus.criteria.map((crit) => (
+                      <div 
+                        key={crit.id} 
+                        className={`flex items-center gap-1.5 transition-colors ${
+                          crit.met ? 'text-[#C6FF3D]' : 'text-white/40'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+                          crit.met ? 'bg-[#C6FF3D]' : 'bg-white/20'
+                        }`} />
+                        <span>{crit.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Submit Button */}
@@ -727,7 +837,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             </div>
 
             {/* 1. Enter New Password */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-[#C6FF3D] text-[11px] font-bold">1. ENTER NEW PASSWORD *</label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#C6FF3D]" />
@@ -735,7 +845,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   type={showPassword ? "text" : "password"}
                   name="password"
                   required
-                  placeholder="Enter new password (min. 4 characters)"
+                  placeholder="Letters, numbers & special character (min. 6)"
                   value={formData.password}
                   onChange={handleChange}
                   className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#0B0C16] border border-[#C6FF3D]/40 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
@@ -752,6 +862,47 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+
+              {/* Live Password Criteria & Strength Feedback */}
+              {formData.password.length > 0 && (
+                <div className="p-2.5 rounded-xl bg-white/[0.04] border border-[#C6FF3D]/20 space-y-2 mt-1">
+                  <div className="flex items-center justify-between text-[10px] font-mono">
+                    <span className="text-white/60">
+                      Strength: <span className="font-bold text-white uppercase">{pwdStatus.strengthLabel}</span>
+                    </span>
+                    <span className="text-white/50">{pwdStatus.metCount} of 4 criteria met</span>
+                  </div>
+
+                  {/* Segmented Strength Bar */}
+                  <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden flex gap-1">
+                    {[1, 2, 3, 4].map((step) => (
+                      <div 
+                        key={step} 
+                        className={`h-full flex-1 rounded-full transition-all duration-300 ${
+                          pwdStatus.metCount >= step ? pwdStatus.barColor : 'bg-white/10'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Requirements Badges */}
+                  <div className="grid grid-cols-2 gap-1 pt-0.5 text-[10px] font-mono">
+                    {pwdStatus.criteria.map((crit) => (
+                      <div 
+                        key={crit.id} 
+                        className={`flex items-center gap-1.5 transition-colors ${
+                          crit.met ? 'text-[#C6FF3D]' : 'text-white/40'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+                          crit.met ? 'bg-[#C6FF3D]' : 'bg-white/20'
+                        }`} />
+                        <span>{crit.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 2. Confirm Password */}

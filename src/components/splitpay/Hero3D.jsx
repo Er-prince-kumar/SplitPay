@@ -13,7 +13,10 @@ const Hero3D = ({ onOpenWaitlist, onOpenDemo, onOpenHowItWorks, onOpenAuth }) =>
 
   const handleHowItWorks = () => {
     sound.playClick();
-    if (onOpenHowItWorks) {
+    const el = document.getElementById('how-it-works');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (onOpenHowItWorks) {
       onOpenHowItWorks();
     }
   };

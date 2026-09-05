@@ -2,7 +2,7 @@ import React from 'react';
 import { FileText, Share2, Zap, ArrowRight } from 'lucide-react';
 import { sound } from '../../utils/audio';
 
-const HowItWorks3D = () => {
+const HowItWorks3D = ({ onOpenInteractiveDemo, onOpenAuth }) => {
   const steps = [
     {
       step: "01",
@@ -49,13 +49,13 @@ const HowItWorks3D = () => {
           {steps.map((s, idx) => (
             <div 
               key={idx}
-              className="p-6 rounded-2xl bg-[#121324] border border-white/10 hover:border-white/20 transition-all space-y-4 relative"
+              className="p-6 rounded-2xl bg-[#121324] border border-white/10 hover:border-[#C6FF3D]/30 transition-all duration-300 space-y-4 relative group"
             >
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-[#C6FF3D]/40 transition-colors">
                   {s.icon}
                 </div>
-                <span className="font-mono text-2xl font-black text-white/20">
+                <span className="font-mono text-2xl font-black text-white/20 group-hover:text-[#C6FF3D]/40 transition-colors">
                   {s.step}
                 </span>
               </div>
@@ -70,6 +70,39 @@ const HowItWorks3D = () => {
             </div>
           ))}
         </div>
+
+        {/* Action CTAs */}
+        {(onOpenInteractiveDemo || onOpenAuth) && (
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+            {onOpenInteractiveDemo && (
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  onOpenInteractiveDemo();
+                }}
+                className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/15 text-xs font-mono transition-all flex items-center gap-2 cursor-pointer hover:border-[#C6FF3D]/40"
+              >
+                <Zap className="w-3.5 h-3.5 text-[#C6FF3D]" />
+                <span>Launch Interactive Demo Modal</span>
+                <ArrowRight className="w-3.5 h-3.5 text-white/50" />
+              </button>
+            )}
+            {onOpenAuth && (
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  onOpenAuth();
+                }}
+                className="px-5 py-2.5 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs font-['Space_Grotesk'] transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-[#C6FF3D]/20 active:scale-95"
+              >
+                <span>Get Started Free</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
 
       </div>
     </section>

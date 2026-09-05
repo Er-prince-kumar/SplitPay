@@ -125,7 +125,12 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
                 className="hover:text-white transition-colors cursor-pointer text-sm font-medium text-white/90"
                 onClick={() => {
                   sound.playClick();
-                  if (onOpenHowItWorks) onOpenHowItWorks();
+                  const el = document.getElementById('how-it-works');
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  } else if (onOpenHowItWorks) {
+                    onOpenHowItWorks();
+                  }
                 }}
               >
                 How it works

@@ -114,8 +114,7 @@ function App() {
             onApplyToSplitter={handleApplyAITrip}
           />
 
-          {/* How It Works & Value Proposition */}
-          <HowItWorks3D />
+          {/* Value Proposition & Security */}
           <ProblemSection />
 
           {/* Core Features & Security */}
@@ -123,23 +122,31 @@ function App() {
           <TrustRazorpay />
         </div>
       ) : (
-        /* Public Visitor Experience: Clean Single-Screen Hero Experience */
-        <div className="min-h-screen flex flex-col justify-between pt-16">
+        /* Public Visitor Experience: Hero & How SplitPay Works Landing Page */
+        <div className="pt-16">
           <Hero3D 
             onOpenAuth={() => setIsAuthOpen(true)}
-            onOpenHowItWorks={() => setIsHowItWorksOpen(true)}
+            onOpenHowItWorks={() => {
+              const el = document.getElementById('how-it-works');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              } else {
+                setIsHowItWorksOpen(true);
+              }
+            }}
             onOpenDemo={() => setIsAuthOpen(true)}
           />
-          <footer className="py-3 px-4 border-t border-white/10 text-center text-xs text-white/40 font-mono">
-            &copy; {new Date().getFullYear()} SplitPay &bull; Fast, simple UPI bill splitting for campus &amp; trips.
-          </footer>
+
+          {/* How SplitPay Works (Visible immediately before login) */}
+          <HowItWorks3D 
+            onOpenInteractiveDemo={() => setIsHowItWorksOpen(true)} 
+            onOpenAuth={() => setIsAuthOpen(true)} 
+          />
         </div>
       )}
 
-      {/* Footer (Rendered when logged in) */}
-      {currentUser && (
-        <Footer onOpenHowItWorks={() => setIsHowItWorksOpen(true)} />
-      )}
+      {/* Footer */}
+      <Footer onOpenHowItWorks={() => setIsHowItWorksOpen(true)} />
 
       {/* Interactive How It Works Walkthrough Modal */}
       <HowItWorksModal 
