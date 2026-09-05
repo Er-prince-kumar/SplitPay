@@ -310,32 +310,21 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }, 1800);
   };
 
-  // Automated banking verification when user triggers auto-verify or returns from UPI app
+  // Banking verification when user triggers auto-verify: Requires UTR or Host confirmation
   const handleAutoVerifyPayment = () => {
-    sound.playClick();
-    setIsVerifyingPayment(true);
-    setUtrError('');
-    setTimeout(() => {
-      setIsVerifyingPayment(false);
-      const target = qrSelectedMemberId === 'all'
-        ? (members.find(m => m.status === 'pending' && !m.isHost) || members.find(m => m.status === 'pending'))
-        : members.find(m => m.id.toString() === qrSelectedMemberId);
-      
-      if (target) {
-        handleConfirmPayment(target);
-      } else {
-        sound.playUpiSuccess();
-        setQrPaymentStatus('received');
-        setTimeout(() => setShowQrModal(false), 1500);
-      }
-    }, 1300);
+    const cleanUtr = (enteredUtr || '').trim();
+    if (cleanUtr.length < 6) {
+      setUtrError('⚠️ Bina payment proof ke auto-verify nahi ho sakta. Kripya 12-digit UPI UTR No. enter karein ya Host niche member ke naam par tap karein.');
+      return;
+    }
+    handleVerifyByUtr();
   };
 
   // Instant verification using 12-digit UPI UTR / Reference No.
   const handleVerifyByUtr = () => {
     const cleanUtr = (enteredUtr || '').trim();
     if (cleanUtr.length < 6) {
-      setUtrError('Kripya 6 se 12 digit ka UPI UTR / Ref No. enter karein');
+      setUtrError('Kripya 6 se 16 digit ka UPI UTR / Ref No. enter karein');
       return;
     }
     sound.playClick();
@@ -358,21 +347,11 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }, 900);
   };
 
-  // Auto-verify payment when user returns to tab after opening external UPI app (GPay / PhonePe / Paytm)
+  // When user returns from UPI app, DO NOT blindly mark as paid! Clear opened state only.
   useEffect(() => {
     const handleReturnFromUpi = () => {
       if (document.visibilityState === 'visible' && paymentAppOpened && showQrModal && qrPaymentStatus === 'waiting') {
         setPaymentAppOpened(false);
-        setIsVerifyingPayment(true);
-        setTimeout(() => {
-          setIsVerifyingPayment(false);
-          const target = qrSelectedMemberId === 'all'
-            ? (members.find(m => m.status === 'pending' && !m.isHost) || members.find(m => m.status === 'pending'))
-            : members.find(m => m.id.toString() === qrSelectedMemberId);
-          if (target) {
-            handleConfirmPayment(target);
-          }
-        }, 1500);
       }
     };
 
@@ -382,7 +361,58 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       document.removeEventListener('visibilitychange', handleReturnFromUpi);
       window.removeEventListener('focus', handleReturnFromUpi);
     };
-  }, [paymentAppOpened, showQrModal, qrPaymentStatus, qrSelectedMemberId, members]);
+  }, [paymentAppOpened, showQrModal, qrPaymentStatus]);
+
+  // Real-time automatic payment receipt engine:
+  // Listens for confirmed payments from the Payment Gateway (with verified UTR)
+  // Automatically speaks Soundbox voice, launches confetti, and marks the squad member as paid!
+  useEffect(() => {
+    let channel;
+    try {
+      channel = new BroadcastChannel('splitpay_sync');
+      channel.onmessage = (event) => {
+        if (event.data && event.data.type === 'PAYMENT_RECEIVED') {
+          const { payerName, amount: pAmount, ref: pRef } = event.data;
+          setMembers(prev => {
+            const target = prev.find(m => 
+              (m.status === 'pending' || !m.status) &&
+              (m.name.toLowerCase().includes(payerName.toLowerCase()) || payerName.toLowerCase().includes(m.name.toLowerCase()))
+            );
+            if (target) {
+              sound.playUpiSuccess();
+              sound.speakUpiReceived(pAmount || target.share, target.name);
+              confetti({ particleCount: 75, spread: 70, origin: { y: 0.6 } });
+              setPaymentToast({
+                name: target.name,
+                amount: pAmount || target.share,
+                ref: pRef
+              });
+              return prev.map(m => m.id === target.id ? { ...m, status: 'paid', verifiedUtr: pRef } : m);
+            }
+            return prev;
+          });
+        }
+      };
+    } catch (e) {}
+
+    const handleStorageEvent = (e) => {
+      if (e.key === 'splitpay_active_trip_v3' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && Array.isArray(parsed.members)) {
+            setMembers(parsed.members);
+          }
+        } catch (err) {}
+      }
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorageEvent);
+    };
+  }, []);
 
   const handleResetMemberStatus = (memberId) => {
     sound.playClick();

@@ -34,6 +34,11 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
   const [copyFeedbackApp, setCopyFeedbackApp] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState('idle'); // 'idle' | 'verifying' | 'success'
   const [isWaitingForReturn, setIsWaitingForReturn] = useState(false);
+  const [showReturnPrompt, setShowReturnPrompt] = useState(false);
+  const [returnStep, setReturnStep] = useState('question'); // 'question' | 'enterUtr'
+  const [returnUtr, setReturnUtr] = useState('');
+  const [returnUtrError, setReturnUtrError] = useState('');
+  const [cancelNotice, setCancelNotice] = useState(false);
   const [utrNumber, setUtrNumber] = useState('');
   const [utrError, setUtrError] = useState('');
   const [transactionRef, setTransactionRef] = useState('');
@@ -152,17 +157,15 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
     }, 4500);
   };
 
-  // Automated Payment Verification: Detects when user returns back from their UPI app
+  // Automated Payment Verification & Return Handling:
+  // When user returns from UPI app (PhonePe/GPay), DO NOT blindly mark as paid!
+  // Instead, show confirmation prompt: ask if payment completed, and require 12-digit UTR to verify.
   useEffect(() => {
     const handleReturnFromPayment = () => {
       if (document.visibilityState === 'visible' && isWaitingForReturn && paymentStatus === 'idle') {
         setIsWaitingForReturn(false);
-        setPaymentStatus('verifying');
-
-        // Simulate real-time NPCI banking settlement verification
-        setTimeout(() => {
-          handleConfirmSuccess();
-        }, 1600);
+        setShowReturnPrompt(true);
+        setReturnStep('question');
       }
     };
 
@@ -194,7 +197,7 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
       colors: ['#C6FF3D', '#0082FB', '#25D366']
     });
 
-    const ref = customRef || ('UPI' + Math.floor(100000000000 + Math.random() * 900000000000));
+    const ref = customRef || ('UTR' + Math.floor(100000000000 + Math.random() * 900000000000));
     setTransactionRef(ref);
     setPaymentTimestamp(new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }));
     setPaymentStatus('success');
@@ -221,7 +224,7 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
         if (parsed && Array.isArray(parsed.members)) {
           parsed.members = parsed.members.map(m => {
             if (m.name.toLowerCase().includes(friend.toLowerCase()) || friend.toLowerCase().includes(m.name.toLowerCase())) {
-              return { ...m, status: 'paid' };
+              return { ...m, status: 'paid', verifiedUtr: ref };
             }
             return m;
           });
@@ -229,27 +232,64 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
         }
       }
 
+      // Broadcast real-time payment event to host tab or any open window
+      try {
+        const channel = new BroadcastChannel('splitpay_sync');
+        channel.postMessage({
+          type: 'PAYMENT_RECEIVED',
+          payerName: friend,
+          amount: numAmount,
+          tripName: trip,
+          ref: ref,
+          timestamp: Date.now()
+        });
+        channel.close();
+      } catch (err) {}
+
       window.dispatchEvent(new Event('storage'));
     } catch (e) {}
   };
 
   const handleManualVerifyClick = () => {
     sound.playClick();
+    const clean = utrNumber.replace(/\D/g, '');
+    if (clean.length < 6) {
+      setShowReturnPrompt(true);
+      setReturnStep('enterUtr');
+      setReturnUtr(utrNumber);
+      setReturnUtrError('⚠️ Bina UPI UTR number ke verify nahi ho sakta! Kripya receipt ka 12-digit UTR enter karein:');
+      return;
+    }
     setPaymentStatus('verifying');
     setUtrError('');
     setTimeout(() => {
-      handleConfirmSuccess(utrNumber ? `UTR${utrNumber}` : null);
-    }, 1400);
+      handleConfirmSuccess(`UTR${clean}`);
+    }, 1200);
   };
 
   const handleVerifyByUtr = () => {
     const clean = utrNumber.replace(/\D/g, '');
     if (clean.length < 6) {
-      setUtrError('Please enter a 6 to 12 digit UPI UTR / Ref number from your payment app');
+      setUtrError('Kripya 6 se 16 digit ka valid UPI UTR / Ref number enter karein');
       return;
     }
     sound.playClick();
     setPaymentStatus('verifying');
+    setTimeout(() => {
+      handleConfirmSuccess(`UTR${clean}`);
+    }, 1200);
+  };
+
+  const handleConfirmReturnWithUtr = () => {
+    const clean = returnUtr.replace(/\D/g, '');
+    if (clean.length < 6) {
+      setReturnUtrError('Kripya valid 6 se 16 digit ka UPI UTR / Ref number enter karein');
+      return;
+    }
+    sound.playClick();
+    setShowReturnPrompt(false);
+    setPaymentStatus('verifying');
+    setUtrNumber(clean);
     setTimeout(() => {
       handleConfirmSuccess(`UTR${clean}`);
     }, 1200);
@@ -338,14 +378,28 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={onBackToApp}
-              className="w-full py-3 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs font-['Space_Grotesk'] transition-all active:scale-95 cursor-pointer shadow-lg shadow-[#C6FF3D]/20 flex items-center justify-center gap-2"
-            >
-              <span>Return to SplitPay Bill Breakdown</span>
-              <ExternalLink className="w-4 h-4" />
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(
+                  `Hi ${cleanHost}! Maine SplitPay par ${trip} ke liye ₹${formattedAmount} successfully pay kar diya hai.\n\nVerified UTR / Ref: ${transactionRef}\nTimestamp: ${paymentTimestamp}`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-xs font-mono transition-all active:scale-95 cursor-pointer shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                <span>Share Receipt on WhatsApp</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={onBackToApp}
+                className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs font-mono transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>Return to SplitPay</span>
+                <ExternalLink className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         ) : paymentStatus === 'verifying' ? (
           /* Live Banking Settlement Verifying Animation */
@@ -711,15 +765,26 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                   <div className="p-3 rounded-xl bg-[#C6FF3D]/10 border border-[#C6FF3D]/30 flex items-center justify-between text-xs font-mono text-[#C6FF3D]">
                     <div className="flex items-center gap-2">
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Payment app opened! Return here to auto-verify.</span>
+                      <span>Payment app opened! Return here to confirm.</span>
                     </div>
                     <button
                       type="button"
-                      onClick={handleManualVerifyClick}
-                      className="px-2 py-1 rounded bg-[#C6FF3D] text-[#0B0C16] font-bold text-[10px] cursor-pointer"
+                      onClick={() => {
+                        sound.playClick();
+                        setShowReturnPrompt(true);
+                        setReturnStep('enterUtr');
+                      }}
+                      className="px-2.5 py-1 rounded bg-[#C6FF3D] text-[#0B0C16] font-bold text-[10px] cursor-pointer"
                     >
-                      Done ✓
+                      Verify UTR ✓
                     </button>
+                  </div>
+                )}
+
+                {cancelNotice && (
+                  <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-mono text-amber-300 flex items-center gap-2 animate-in fade-in">
+                    <Info className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span>Payment Pending / Cancelled. Agar aapne pay kiya hai toh UTR enter karke verify karein.</span>
                   </div>
                 )}
               </div>
@@ -829,6 +894,153 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
               <div>NPCI UPI 2.0 &bull; SplitPay</div>
             </div>
 
+          </div>
+        )}
+
+        {/* Return Confirmation & UTR Verification Modal */}
+        {showReturnPrompt && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-[#121324] border border-white/20 rounded-3xl p-6 shadow-2xl space-y-4 text-left relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-[#0082FB]/20 blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-40 h-40 bg-[#C6FF3D]/15 blur-3xl pointer-events-none" />
+
+              {returnStep === 'question' ? (
+                <div className="space-y-4 relative z-10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-[#0082FB]/20 border border-[#0082FB]/40 flex items-center justify-center text-[#0082FB] shrink-0">
+                      <Smartphone className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white font-['Space_Grotesk']">
+                        Aap Payment App Se Wapas Aaye Hain
+                      </h3>
+                      <p className="text-xs text-white/60 font-mono">
+                        Kya aapka ₹{formattedAmount} ka payment complete ho gaya?
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2 font-mono text-xs text-white/70">
+                    <div className="flex justify-between text-white">
+                      <span>Amount Due:</span>
+                      <strong className="text-[#C6FF3D] text-sm">₹{formattedAmount}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Beneficiary (Host):</span>
+                      <span className="text-white font-bold">{cleanHost}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Receiving UPI:</span>
+                      <span className="text-white/90 truncate max-w-[200px]">{cleanUpi}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        setReturnStep('enterUtr');
+                        setReturnUtrError('');
+                      }}
+                      className="w-full py-3.5 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-sm font-['Space_Grotesk'] flex items-center justify-center gap-2 cursor-pointer shadow-xl shadow-[#25D366]/20 active:scale-95 transition-all"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>✓ Haan, Maine Payment Kar Diya</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        setShowReturnPrompt(false);
+                        setCancelNotice(true);
+                        setTimeout(() => setCancelNotice(false), 6000);
+                      }}
+                      className="w-full py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white font-mono text-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                    >
+                      <span>✕ Nahi, Payment Cancel Kiya / Abhi Nahi Hua</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 relative z-10 animate-in fade-in duration-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-[#C6FF3D]/20 border border-[#C6FF3D]/40 flex items-center justify-center text-[#C6FF3D] shrink-0">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white font-['Space_Grotesk']">
+                        Payment Verification (UTR)
+                      </h3>
+                      <p className="text-xs text-white/60 font-mono">
+                        PhonePe / GPay receipt se 12-digit UTR enter karein
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-black/50 border border-white/10 text-xs font-mono text-white/80 space-y-1.5">
+                    <p className="text-[#C6FF3D] font-bold">UTR number kaha milega?</p>
+                    <p className="text-[11px] text-white/60 leading-relaxed">
+                      PhonePe, Google Pay ya Paytm me payment receipt par <strong>"UPI Ref No"</strong> ya <strong>"UTR"</strong> (12 digits, e.g. 424109182391) likha hota hai.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-white/60 block uppercase font-bold">
+                      12-Digit UPI Ref / UTR Number:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 424109182391"
+                      maxLength={16}
+                      value={returnUtr}
+                      onChange={(e) => {
+                        setReturnUtr(e.target.value.replace(/\D/g, ''));
+                        setReturnUtrError('');
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/20 text-white font-mono text-sm focus:border-[#C6FF3D] focus:outline-none"
+                      autoFocus
+                    />
+                    {returnUtrError && (
+                      <p className="text-[11px] text-red-400 font-mono">{returnUtrError}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleConfirmReturnWithUtr}
+                      className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#C6FF3D] to-[#25D366] text-[#0B0C16] font-bold text-sm font-['Space_Grotesk'] flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#C6FF3D]/25 active:scale-95 transition-all"
+                    >
+                      <Zap className="w-4 h-4 fill-current" />
+                      <span>Verify UTR &amp; Confirm Payment ⚡</span>
+                    </button>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setReturnStep('question')}
+                        className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white font-mono text-xs cursor-pointer"
+                      >
+                        Peeche Jaayein
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowReturnPrompt(false);
+                          setCancelNotice(true);
+                          setTimeout(() => setCancelNotice(false), 6000);
+                        }}
+                        className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white font-mono text-xs cursor-pointer"
+                      >
+                        Cancel Karein
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
