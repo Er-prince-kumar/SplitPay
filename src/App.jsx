@@ -15,9 +15,11 @@ import UserDashboard from './components/splitpay/UserDashboard';
 import ProfileModal from './components/splitpay/ProfileModal';
 import HowItWorksModal from './components/splitpay/HowItWorksModal';
 import ReceiptOcrSection from './components/splitpay/ReceiptOcrSection';
+import PaymentGatewayPage from './components/splitpay/PaymentGatewayPage';
 import { sound } from './utils/audio';
 
 function App() {
+  const [gatewayData, setGatewayData] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -39,6 +41,31 @@ function App() {
           }
           setCurrentUser(user);
         }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  // Detect if user opened the URL via a verified payment gateway link (?pay=true)
+  useEffect(() => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      let hashParams = null;
+      if (window.location.hash.includes('?')) {
+        hashParams = new URLSearchParams(window.location.hash.substring(window.location.hash.indexOf('?')));
+      }
+
+      const isPay = searchParams.get('pay') === 'true' || hashParams?.get('pay') === 'true';
+      if (isPay) {
+        setGatewayData({
+          friend: searchParams.get('friend') || hashParams?.get('friend') || 'Friend',
+          amount: Number(searchParams.get('amount') || hashParams?.get('amount') || 0),
+          host: searchParams.get('host') || hashParams?.get('host') || 'Organizer',
+          upi: searchParams.get('upi') || hashParams?.get('upi') || '',
+          trip: searchParams.get('trip') || hashParams?.get('trip') || 'Group Expense',
+          billId: searchParams.get('billId') || hashParams?.get('billId') || 'SP-' + Date.now()
+        });
       }
     } catch (e) {
       console.error(e);
@@ -78,6 +105,22 @@ function App() {
     setAppliedAITripData(trip);
     scrollToSplitter();
   };
+
+  // If opened via payment gateway link, render the verified Payment Gateway Page
+  if (gatewayData) {
+    return (
+      <PaymentGatewayPage
+        gatewayData={gatewayData}
+        onBackToApp={() => {
+          setGatewayData(null);
+          try {
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.pushState({}, '', cleanUrl);
+          } catch (e) {}
+        }}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#0B0C16] text-[#F5F3EE] relative selection:bg-[#C6FF3D] selection:text-[#0B0C16] overflow-x-hidden font-['Inter']">

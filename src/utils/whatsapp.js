@@ -53,19 +53,21 @@ export const buildSplitWhatsAppMessage = ({
   tone = 'standard'
 }) => {
   const formattedAmount = Number(amount).toLocaleString('en-IN');
-  const appLink = 'https://er-prince-kumar.github.io/SplitPay/';
+  const baseUrl = typeof window !== 'undefined' && window.location.origin
+    ? `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}`
+    : 'https://er-prince-kumar.github.io/SplitPay';
+
+  const gatewayUrl = `${baseUrl}/?pay=true&friend=${encodeURIComponent(friendName)}&amount=${amount}&host=${encodeURIComponent(hostName)}&upi=${encodeURIComponent(hostUpi)}&trip=${encodeURIComponent(tripName)}`;
 
   let text = `Hey ${friendName}! 👋\n`;
   text += `Here is your personal split share for *${tripName}*:\n\n`;
   text += `💰 *Amount to Pay*: *₹${formattedAmount}*\n`;
   text += `👤 *Organizer*: ${hostName}\n`;
   if (hostUpi) {
-    text += `💳 *Pay to UPI ID*: *${hostUpi}*\n`;
-    text += `📱 _(PhonePe, Google Pay, ya Paytm me UPI ID search karke pay karein)_\n\n`;
-  } else {
-    text += `💳 *UPI ID*: Contact ${hostName}\n\n`;
+    text += `💳 *UPI ID*: *${hostUpi}*\n`;
   }
-  text += `🌐 *View Live Bill & Scan UPI QR Code*:\n${appLink}\n\n`;
+  text += `\n🚀 *1-Tap Pay via SplitPay Secure Gateway:*\n${gatewayUrl}\n\n`;
+  text += `🔒 _(Zero Risk • Verified SSL • GPay / PhonePe / Paytm accepted)_\n`;
   text += `Please settle whenever you get a minute! 🙏\n_Sent via SplitPay ⚡_`;
   return text;
 };
@@ -83,7 +85,11 @@ export const buildGroupSplitWhatsAppMessage = ({
 }) => {
   const formattedTotal = Number(totalAmount).toLocaleString('en-IN');
   const formattedShare = Number(perPersonShare).toLocaleString('en-IN');
-  const appLink = 'https://er-prince-kumar.github.io/SplitPay/';
+  const baseUrl = typeof window !== 'undefined' && window.location.origin
+    ? `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}`
+    : 'https://er-prince-kumar.github.io/SplitPay';
+
+  const gatewayUrl = `${baseUrl}/?pay=true&amount=${perPersonShare}&host=${encodeURIComponent(hostName)}&upi=${encodeURIComponent(hostUpi)}&trip=${encodeURIComponent(tripName)}`;
 
   const memberLines = members.map((m, idx) => {
     const isPaid = m.status === 'paid';
@@ -95,13 +101,12 @@ export const buildGroupSplitWhatsAppMessage = ({
   text += `👥 *Total Friends*: ${members.length}\n`;
   text += `👉 *Per Person Share*: *₹${formattedShare} each*\n\n`;
   text += `📋 *Member Status:*\n${memberLines}\n\n`;
-  text += `⚡ *How to Pay (Direct UPI to Host):*\n`;
   text += `👤 *Organizer*: ${hostName}\n`;
   if (hostUpi) {
     text += `💳 *UPI ID*: *${hostUpi}*\n`;
-    text += `📱 _(PhonePe, Google Pay, ya Paytm me UPI ID daal kar pay karein)_\n\n`;
   }
-  text += `🌐 *View Live Bill & Scan UPI QR*:\n${appLink}\n\n`;
+  text += `\n🚀 *1-Tap Pay via SplitPay Secure Gateway:*\n${gatewayUrl}\n\n`;
+  text += `🔒 _(Verified SSL • Zero Risk • 1-Tap GPay/PhonePe/Paytm)_\n`;
   text += `Sabhi dost apna share settle kar dein! 🙏\n_Powered by SplitPay ⚡_`;
   return text;
 };
