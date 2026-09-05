@@ -247,32 +247,50 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
   };
 
   const handleManualVerifyClick = () => {
+    const clean = utrNumber.replace(/\D/g, '').trim();
+    if (clean.length < 6) {
+      sound.playClick();
+      setShowReturnPrompt(true);
+      setReturnStep('enterUtr');
+      setReturnUtrError('⚠️ Bina payment proof (12-digit UTR No.) ke verify nahi ho sakta. Kripya PhonePe/GPay receipt se 12-digit UTR enter karein.');
+      return;
+    }
     sound.playClick();
     setPaymentStatus('verifying');
     setUtrError('');
-    const clean = utrNumber.replace(/\D/g, '');
     setTimeout(() => {
-      handleConfirmSuccess(clean ? `UTR${clean}` : null);
+      handleConfirmSuccess(`UTR${clean}`);
     }, 1200);
   };
 
   const handleVerifyByUtr = () => {
-    const clean = utrNumber.replace(/\D/g, '');
+    const clean = utrNumber.replace(/\D/g, '').trim();
+    if (clean.length < 6) {
+      sound.playClick();
+      setUtrError('⚠️ Kripya 6 se 16 digit ka valid UPI UTR / Ref No. enter karein');
+      return;
+    }
     sound.playClick();
     setPaymentStatus('verifying');
+    setUtrError('');
     setTimeout(() => {
-      handleConfirmSuccess(clean ? `UTR${clean}` : null);
+      handleConfirmSuccess(`UTR${clean}`);
     }, 1200);
   };
 
   const handleConfirmReturnWithUtr = () => {
+    const clean = returnUtr.replace(/\D/g, '').trim();
+    if (clean.length < 6) {
+      sound.playClick();
+      setReturnUtrError('⚠️ Kripya PhonePe/GPay receipt se valid 12-digit UTR No. enter karein');
+      return;
+    }
     sound.playClick();
     setShowReturnPrompt(false);
     setPaymentStatus('verifying');
-    const clean = returnUtr.replace(/\D/g, '');
     setUtrNumber(clean);
     setTimeout(() => {
-      handleConfirmSuccess(clean ? `UTR${clean}` : null);
+      handleConfirmSuccess(`UTR${clean}`);
     }, 1200);
   };
 
@@ -841,11 +859,11 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                 <span>I Have Paid ₹{formattedAmount} (Auto-Verify Now) ⚡</span>
               </button>
 
-              {/* Optional 12-Digit UTR Input */}
+              {/* 12-Digit UTR Input */}
               <div className="p-2.5 rounded-xl bg-[#0B0C16] border border-white/10 flex items-center gap-2 text-left">
                 <input
                   type="text"
-                  placeholder="Optional: Enter 12-digit UPI Ref / UTR No."
+                  placeholder="Enter 12-digit UPI Ref / UTR No. from receipt"
                   value={utrNumber}
                   onChange={(e) => {
                     setUtrNumber(e.target.value.replace(/\D/g, ''));

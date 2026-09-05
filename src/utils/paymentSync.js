@@ -46,18 +46,29 @@ export const broadcastPaymentSettled = async ({ host, trip, payerName, amount, r
 
 export const subscribeToTripSettlement = ({ host, trip, onPaymentSettled }) => {
   const topic = getSyncTopic(host, trip);
+  const sessionStartTime = Date.now();
+  const processedRefs = new Set();
   let eventSource = null;
   let broadcastChannel = null;
 
-  // 1. Listen to remote SSE across internet
+  // 1. Listen to remote SSE across internet (only events happening NOW or in future; ?since=now avoids replaying last 12 hours)
   try {
-    eventSource = new EventSource(`https://ntfy.sh/${topic}/sse`);
+    eventSource = new EventSource(`https://ntfy.sh/${topic}/sse?since=now`);
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data && data.message) {
           const parsedPayload = JSON.parse(data.message);
-          if (parsedPayload && parsedPayload.type === 'PAYMENT_SETTLED') {
+          if (
+            parsedPayload &&
+            parsedPayload.type === 'PAYMENT_SETTLED' &&
+            parsedPayload.timestamp &&
+            parsedPayload.timestamp >= sessionStartTime - 3000
+          ) {
+            if (parsedPayload.ref && processedRefs.has(parsedPayload.ref)) {
+              return;
+            }
+            if (parsedPayload.ref) processedRefs.add(parsedPayload.ref);
             onPaymentSettled(parsedPayload);
           }
         }
@@ -67,11 +78,20 @@ export const subscribeToTripSettlement = ({ host, trip, onPaymentSettled }) => {
     console.warn('SSE subscription error:', e);
   }
 
-  // 2. Listen to local broadcast channel
+  // 2. Listen to local broadcast channel (only fresh events)
   try {
     broadcastChannel = new BroadcastChannel('splitpay_sync');
     broadcastChannel.onmessage = (event) => {
-      if (event.data && event.data.type === 'PAYMENT_SETTLED') {
+      if (
+        event.data &&
+        event.data.type === 'PAYMENT_SETTLED' &&
+        event.data.timestamp &&
+        event.data.timestamp >= sessionStartTime - 3000
+      ) {
+        if (event.data.ref && processedRefs.has(event.data.ref)) {
+          return;
+        }
+        if (event.data.ref) processedRefs.add(event.data.ref);
         onPaymentSettled(event.data);
       }
     };

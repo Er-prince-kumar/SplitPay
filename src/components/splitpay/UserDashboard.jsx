@@ -81,7 +81,7 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
 
   const [trips, setTrips] = useState(getInitialTrips);
 
-  // Keep trips synced with storage events
+  // Keep trips synced with storage events (syncs when members are paid/settled in Splitter or Gateway)
   useEffect(() => {
     const handleStorageChange = () => {
       try {
@@ -90,6 +90,23 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
             setTrips(parsed.filter(t => !['trip-1', 'trip-2', 'trip-3', 'trip-4'].includes(t.id) && !t.id.startsWith('trip-manali-')));
+          }
+        }
+
+        // Also sync active trip settlement updates to keep dashboard permanent
+        const activeSaved = localStorage.getItem('splitpay_active_trip_v3');
+        if (activeSaved) {
+          const activeTrip = JSON.parse(activeSaved);
+          if (activeTrip && activeTrip.tripName && Array.isArray(activeTrip.members)) {
+            setTrips(prev => prev.map(t => {
+              if (t.tripName.toLowerCase() === activeTrip.tripName.toLowerCase()) {
+                return {
+                  ...t,
+                  members: activeTrip.members
+                };
+              }
+              return t;
+            }));
           }
         }
       } catch (e) {}
@@ -157,32 +174,6 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
     }
   };
 
-  // Toggle entire trip settlement status (Mark 100% Settled / Reopen)
-  const handleToggleSettleTrip = (tripId, e) => {
-    if (e && e.stopPropagation) e.stopPropagation();
-    sound.playClick();
-
-    setTrips(prev => prev.map(t => {
-      if (t.id !== tripId) return t;
-      const isCurrentlySettled = t.members.every(m => m.status === 'paid');
-      const newStatus = isCurrentlySettled ? 'pending' : 'paid';
-
-      if (!isCurrentlySettled) {
-        sound.playUpiSuccess();
-        confetti({
-          particleCount: 65,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#C6FF3D', '#0082FB', '#25D366']
-        });
-      }
-
-      return {
-        ...t,
-        members: t.members.map(m => m.isHost ? m : { ...m, status: newStatus })
-      };
-    }));
-  };
 
   const handleCreateTrip = (e) => {
     e.preventDefault();
@@ -620,25 +611,21 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
                         </span>
                         
                         {isSettled ? (
-                          <button
-                            type="button"
-                            onClick={(e) => handleToggleSettleTrip(trip.id, e)}
-                            className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#25D366] bg-[#25D366]/15 hover:bg-[#25D366]/25 px-2 py-0.5 rounded-full border border-[#25D366]/30 transition-colors"
-                            title="100% Settled. Click to reopen."
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#25D366] bg-[#25D366]/15 px-2.5 py-0.5 rounded-full border border-[#25D366]/30 select-none shadow-sm"
+                            title="100% Settled"
                           >
-                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            <CheckCircle2 className="w-3 h-3 text-[#25D366]" />
                             <span>100% Settled ✓</span>
-                          </button>
+                          </span>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={(e) => handleToggleSettleTrip(trip.id, e)}
-                            className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-amber-400 hover:text-[#C6FF3D] bg-amber-400/15 hover:bg-[#C6FF3D]/15 px-2 py-0.5 rounded-full border border-amber-400/30 hover:border-[#C6FF3D]/30 transition-colors"
-                            title="Click to Mark Settled"
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-amber-400 bg-amber-400/15 px-2.5 py-0.5 rounded-full border border-amber-400/30 select-none"
+                            title={`${paidMembers} of ${trip.members.length} members paid`}
                           >
-                            <Clock className="w-2.5 h-2.5" />
-                            <span>In Progress</span>
-                          </button>
+                            <Clock className="w-3 h-3 text-amber-400" />
+                            <span>In Progress ({paidMembers}/{trip.members.length})</span>
+                          </span>
                         )}
                       </div>
 
@@ -706,20 +693,18 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
                           <ArrowRight className="w-3 h-3" />
                         </button>
 
-                        {/* Settle / Mark Paid Toggle Button */}
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleSettleTrip(trip.id, e)}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm active:scale-95 ${
+                        {/* Settle Status Badge (Non-interactive) */}
+                        <span
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 select-none ${
                             isSettled
-                              ? 'bg-[#25D366]/15 hover:bg-amber-400/15 text-[#25D366] hover:text-amber-400 border border-[#25D366]/30 hover:border-amber-400/30'
-                              : 'bg-[#C6FF3D]/15 hover:bg-[#C6FF3D]/25 text-[#C6FF3D] border border-[#C6FF3D]/40'
+                              ? 'bg-[#25D366]/15 text-[#25D366] border border-[#25D366]/30'
+                              : 'bg-white/5 text-white/50 border border-white/10'
                           }`}
-                          title={isSettled ? "Trip is settled. Click to reopen as in progress." : "Click to mark this entire trip as 100% settled"}
+                          title={isSettled ? "All members paid" : "Settlement in progress"}
                         >
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>{isSettled ? "Settled ✓" : "Mark Settled"}</span>
-                        </button>
+                          <CheckCircle2 className="w-3 h-3 text-current" />
+                          <span>{isSettled ? "Settled ✓" : `${paidMembers}/${trip.members.length} Paid`}</span>
+                        </span>
                       </div>
 
                       <button

@@ -274,17 +274,17 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       colors: ['#C6FF3D', '#0082FB', '#25D366']
     });
 
-    setMembers(prev => prev.map(m => m.id === memberToPay.id ? { ...m, status: 'paid' } : m));
+    const refId = customRefId || ('UPI' + Math.floor(100000 + Math.random() * 900000));
+    setMembers(prev => prev.map(m => m.id === memberToPay.id ? { ...m, status: 'paid', verifiedUtr: refId } : m));
     setQrPaymentStatus('received');
 
-    const refId = customRefId || ('UPI' + Math.floor(100000 + Math.random() * 900000));
     setPaymentToast({
       name: memberToPay.name,
       amount: perPersonShare,
       ref: refId
     });
 
-    // Record real payment to splitpay_payment_activity for UserDashboard live log
+    // Record verified payment to splitpay_payment_activity for UserDashboard live log
     try {
       const storedAct = localStorage.getItem('splitpay_payment_activity');
       const actList = storedAct ? JSON.parse(storedAct) : [];
@@ -292,12 +292,31 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
         id: 'act-' + Date.now(),
         payerName: memberToPay.name,
         amount: perPersonShare,
-        tripName: tripName,
+        tripName: tripName || 'Group Split',
         ref: refId,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: 'Verified'
       });
       localStorage.setItem('splitpay_payment_activity', JSON.stringify(actList.slice(0, 10)));
+
+      // Sync settlement to user trips list in localStorage
+      const userKey = `splitpay_trips_${currentUser?.email || 'guest'}`;
+      const savedTrips = localStorage.getItem(userKey);
+      if (savedTrips) {
+        const parsed = JSON.parse(savedTrips);
+        if (Array.isArray(parsed)) {
+          const updated = parsed.map(t => {
+            if (t.tripName && tripName && t.tripName.toLowerCase() === tripName.toLowerCase()) {
+              return {
+                ...t,
+                members: t.members.map(m => (m.id === memberToPay.id || m.name.toLowerCase() === memberToPay.name.toLowerCase()) ? { ...m, status: 'paid', verifiedUtr: refId } : m)
+              };
+            }
+            return t;
+          });
+          localStorage.setItem(userKey, JSON.stringify(updated));
+        }
+      }
       window.dispatchEvent(new Event('storage'));
     } catch (e) {}
 
@@ -311,20 +330,33 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }, 1800);
   };
 
-  // Automated banking verification: verifies and auto-settles payment
+  // Host manually confirms cash received with confirmation dialog
+  const handleManualCashSettle = (member) => {
+    sound.playClick();
+    if (window.confirm(`Kya ${member.name} ne sach me ₹${perPersonShare.toLocaleString('en-IN')} cash/offline pay kar diya hai?`)) {
+      handleConfirmPayment(member, `CASH${Date.now().toString().slice(-6)}`);
+    }
+  };
+
+  // Automated banking verification: strictly requires 12-digit UTR from payment receipt
   const handleAutoVerifyPayment = () => {
+    const cleanUtr = (enteredUtr || '').replace(/\D/g, '').trim();
+    if (cleanUtr.length < 6) {
+      sound.playClick();
+      setUtrError('⚠️ Bina payment receipt UTR number ke verify nahi ho sakta. Kripya 12-digit UTR enter karein.');
+      return;
+    }
     sound.playClick();
     setIsVerifyingPayment(true);
     setUtrError('');
     setTimeout(() => {
       setIsVerifyingPayment(false);
-      const cleanUtr = (enteredUtr || '').trim();
       const target = qrSelectedMemberId === 'all'
         ? (members.find(m => m.status === 'pending' && !m.isHost) || members.find(m => m.status === 'pending'))
         : members.find(m => m.id.toString() === qrSelectedMemberId);
       
       if (target) {
-        handleConfirmPayment(target, cleanUtr ? `UTR${cleanUtr}` : null);
+        handleConfirmPayment(target, `UTR${cleanUtr}`);
       } else {
         sound.playUpiSuccess();
         setQrPaymentStatus('received');
@@ -336,9 +368,10 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   // Instant verification using 12-digit UPI UTR / Reference No.
   const handleVerifyByUtr = () => {
-    const cleanUtr = (enteredUtr || '').trim();
+    const cleanUtr = (enteredUtr || '').replace(/\D/g, '').trim();
     if (cleanUtr.length < 6) {
-      setUtrError('Kripya 6 se 16 digit ka UPI UTR / Ref No. enter karein');
+      sound.playClick();
+      setUtrError('⚠️ Kripya PhonePe/GPay receipt se 6 se 16 digit ka UPI UTR / Ref No. enter karein');
       return;
     }
     sound.playClick();
@@ -426,44 +459,6 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       window.removeEventListener('storage', handleStorageEvent);
     };
   }, [currentUser?.name, tripName]);
-
-  const handleResetMemberStatus = (memberId) => {
-    sound.playClick();
-    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'pending' } : m));
-  };
-
-  const handleResetAllToPending = () => {
-    sound.playClick();
-    setMembers(prev => prev.map(m => ({ ...m, status: 'pending' })));
-    sound.playUpiSuccess();
-  };
-
-  const handleMarkAllSettled = () => {
-    sound.playUpiSuccess();
-    confetti({
-      particleCount: 70,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#C6FF3D', '#0082FB', '#25D366']
-    });
-    setMembers(prev => prev.map(m => ({ ...m, status: 'paid' })));
-
-    try {
-      const storedAct = localStorage.getItem('splitpay_payment_activity');
-      const actList = storedAct ? JSON.parse(storedAct) : [];
-      actList.unshift({
-        id: 'act-' + Date.now(),
-        payerName: 'All Squad Members',
-        amount: numAmount,
-        tripName: tripName || 'Group Split',
-        ref: 'UPI' + Math.floor(100000 + Math.random() * 900000),
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: 'Verified (100% Settled)'
-      });
-      localStorage.setItem('splitpay_payment_activity', JSON.stringify(actList.slice(0, 10)));
-      window.dispatchEvent(new Event('storage'));
-    } catch (e) {}
-  };
 
   const checkPromptHostUpi = () => {
     if (!hostUpi || !hostUpi.trim()) {
@@ -794,18 +789,6 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                   <span className="text-[#C6FF3D] font-bold">
                     ₹{perPersonShare > 0 ? perPersonShare.toLocaleString('en-IN') : '00'} / person
                   </span>
-                  
-                  {members.some(m => m.status === 'paid') && (
-                    <button
-                      type="button"
-                      onClick={handleResetAllToPending}
-                      className="px-2 py-0.5 rounded-lg text-[10px] font-mono text-white/50 hover:text-amber-400 hover:bg-amber-400/10 border border-white/10 hover:border-amber-400/30 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
-                      title="Reset all member payments to Pending"
-                    >
-                      <RotateCcw className="w-2.5 h-2.5" />
-                      <span>Reset All</span>
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -938,9 +921,9 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                           {!member.isHost && (
                             <button
                               type="button"
-                              onClick={() => handleConfirmPayment(member)}
+                              onClick={() => handleManualCashSettle(member)}
                               className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold text-white/50 hover:text-[#C6FF3D] hover:bg-[#C6FF3D]/10 border border-white/10 hover:border-[#C6FF3D]/30 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
-                              title={`Manually settle ${member.name} (e.g. Cash received)`}
+                              title={`Confirm cash received from ${member.name}`}
                             >
                               <CheckCircle2 className="w-3 h-3" />
                               <span>Cash Settle</span>
@@ -1052,23 +1035,20 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
               {/* Primary Actions */}
               <div className="space-y-2.5 pt-2">
-                {/* Settle Entire Bill Button */}
-                {paidCount < members.length ? (
-                  <button
-                    type="button"
-                    onClick={handleMarkAllSettled}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#C6FF3D]/15 to-[#0082FB]/15 hover:from-[#C6FF3D]/25 hover:to-[#0082FB]/25 text-[#C6FF3D] border border-[#C6FF3D]/40 font-bold text-xs font-mono transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#C6FF3D]/10 active:scale-95"
-                    title="Mark all pending members as paid"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-[#C6FF3D]" />
-                    <span>Mark Entire Bill Settled (All Paid)</span>
-                  </button>
-                ) : (
-                  <div className="w-full py-2 rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 text-[#25D366] text-xs font-mono font-bold flex items-center justify-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>✓ 100% Fully Settled!</span>
+                {/* Settlement Status Display */}
+                <div className={`w-full py-2.5 px-3.5 rounded-xl border text-xs font-mono flex items-center justify-between ${
+                  paidCount === members.length
+                    ? 'bg-[#25D366]/15 border-[#25D366]/30 text-[#25D366] font-bold shadow-sm'
+                    : 'bg-white/5 border-white/10 text-white/70'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className={`w-4 h-4 ${paidCount === members.length ? 'text-[#25D366]' : 'text-[#C6FF3D]'}`} />
+                    <span>Settlement Status:</span>
                   </div>
-                )}
+                  <span className={paidCount === members.length ? 'text-[#25D366] font-bold' : 'text-[#C6FF3D] font-bold'}>
+                    {paidCount === members.length ? '✓ 100% Settled (All Members Paid)' : `${paidCount} of ${members.length} Members Settled`}
+                  </span>
+                </div>
 
                 {/* 1. Send to Each Friend Individually (Har Dost Ko Alag-Alag WhatsApp) */}
                 <button
@@ -1344,16 +1324,16 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                     </button>
                   </div>
 
-                  {/* Optional: Verify with 12-Digit UPI UTR / Ref No. */}
+                  {/* Verify with 12-Digit UPI UTR / Ref No. */}
                   <div className="p-2.5 rounded-xl bg-[#0B0C16] border border-white/10 space-y-1.5 text-left">
                     <div className="flex items-center justify-between text-[10px] font-mono text-white/50">
-                      <span>UPI 12-DIGIT UTR / REF NO.:</span>
+                      <span>UPI 12-DIGIT UTR / REF NO. (From Receipt):</span>
                       <span className="text-[#C6FF3D]">Instant Settle</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <input
                         type="text"
-                        placeholder="e.g. 423819283741"
+                        placeholder="Enter 12-digit UTR (e.g. 423819283741)"
                         maxLength={16}
                         value={enteredUtr}
                         onChange={(e) => {
@@ -1376,25 +1356,26 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                     )}
                   </div>
 
-                  {/* Manual Quick Mark Paid Buttons */}
+                  {/* Manual Cash Confirmation Option */}
                   <div className="space-y-2 pt-1">
                     {qrSelectedMemberId === 'all' ? (
                       <div className="space-y-2 text-left">
                         {members.some(m => m.status === 'pending' && !m.isHost) ? (
                           <>
                             <span className="text-[10px] font-mono text-white/50 block text-center uppercase tracking-wider">
-                              Kis dost ne pay kiya? Tap to mark paid:
+                              Cash in hand mila? Tap to confirm cash:
                             </span>
                             <div className="flex flex-wrap gap-1.5 justify-center max-h-24 overflow-y-auto p-1">
                               {members.filter(m => m.status === 'pending' && !m.isHost).map(pendingM => (
                                 <button
                                   key={pendingM.id}
                                   type="button"
-                                  onClick={() => handleConfirmPayment(pendingM)}
-                                  className="px-2.5 py-1.5 rounded-lg bg-[#C6FF3D]/15 hover:bg-[#C6FF3D]/30 border border-[#C6FF3D]/40 text-[#C6FF3D] text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                                  onClick={() => handleManualCashSettle(pendingM)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-[#C6FF3D]/20 border border-white/10 hover:border-[#C6FF3D]/40 text-white/80 hover:text-[#C6FF3D] text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                                  title={`Confirm cash received from ${pendingM.name}`}
                                 >
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  <span>{pendingM.name} Paid ✓</span>
+                                  <CheckCircle2 className="w-3 h-3 text-[#C6FF3D]" />
+                                  <span>{pendingM.name} (Cash)</span>
                                 </button>
                               ))}
                             </div>
@@ -1404,30 +1385,16 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                             ✓ All Squad Members Paid!
                           </div>
                         )}
-
-                        {paidCount < members.length && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleMarkAllSettled();
-                              setShowQrModal(false);
-                            }}
-                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#C6FF3D] to-[#0082FB] hover:opacity-90 text-[#0B0C16] font-bold text-xs font-['Space_Grotesk'] transition-all active:scale-95 cursor-pointer shadow-lg shadow-[#C6FF3D]/15 flex items-center justify-center gap-2"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>Mark Entire Bill Settled (All Paid)</span>
-                          </button>
-                        )}
                       </div>
                     ) : (
                       <div className="space-y-2 pt-1">
                         <button
                           type="button"
-                          onClick={() => handleConfirmPayment(activeQrTarget)}
-                          className="w-full py-3 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs sm:text-sm font-['Space_Grotesk'] transition-all active:scale-95 cursor-pointer shadow-lg shadow-[#C6FF3D]/15 flex items-center justify-center gap-2"
+                          onClick={() => handleManualCashSettle(activeQrTarget)}
+                          className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-[#C6FF3D]/15 border border-white/15 hover:border-[#C6FF3D]/40 text-white hover:text-[#C6FF3D] font-bold text-xs font-['Space_Grotesk'] transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
                         >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Confirm ₹{qrAmountToPay.toLocaleString('en-IN')} from {activeQrTarget?.name} Received</span>
+                          <CheckCircle2 className="w-4 h-4 text-[#C6FF3D]" />
+                          <span>Confirm Cash Received from {activeQrTarget?.name}</span>
                         </button>
                       </div>
                     )}
