@@ -17,7 +17,8 @@ import {
   RotateCcw,
   BookmarkCheck,
   Camera,
-  Send
+  Send,
+  AlertCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';
@@ -69,6 +70,10 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   const [qrTargetMember, setQrTargetMember] = useState(null);
   const [qrSelectedMemberId, setQrSelectedMemberId] = useState('all');
   const [qrPaymentStatus, setQrPaymentStatus] = useState('waiting');
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [whatsAppTargetMemberId, setWhatsAppTargetMemberId] = useState(null);
+  const [sentStatusMap, setSentStatusMap] = useState({});
+  const [missingPhoneAlertId, setMissingPhoneAlertId] = useState(null);
   const [paymentToast, setPaymentToast] = useState(null);
   const [savedSuccessToast, setSavedSuccessToast] = useState(false);
 
@@ -325,6 +330,14 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   const handleSendWhatsApp = (member) => {
     sound.playClick();
+    const cleanDigits = (member.phone || '').replace(/\D/g, '');
+    if (cleanDigits.length < 10) {
+      setWhatsAppTargetMemberId(member.id);
+      setMissingPhoneAlertId(member.id);
+      setShowWhatsAppModal(true);
+      return;
+    }
+
     const message = buildSplitWhatsAppMessage({
       friendName: member.name,
       tripName,
@@ -333,7 +346,8 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       hostUpi,
       tone: 'standard'
     });
-    openWhatsAppDirect(member.phone || '', message);
+    openWhatsAppDirect(member.phone, message);
+    setSentStatusMap(prev => ({ ...prev, [member.id]: true }));
   };
 
   const handleSendGroupWhatsApp = () => {
@@ -349,26 +363,35 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     openWhatsAppDirect('', message);
   };
 
-  const handleNudgeAllPending = () => {
+  const handleOpenWhatsAppDispatcher = () => {
     sound.playClick();
-    const pendingWithPhone = members.filter(m => m.status === 'pending' && m.phone);
-    if (pendingWithPhone.length === 0) {
-      handleSendGroupWhatsApp();
+    setWhatsAppTargetMemberId(null);
+    setMissingPhoneAlertId(null);
+    setShowWhatsAppModal(true);
+  };
+
+  const handleUpdateMemberPhone = (memberId, newPhone) => {
+    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, phone: newPhone } : m));
+  };
+
+  const handleSendIndividualFromModal = (member) => {
+    const rawDigits = (member.phone || '').replace(/\D/g, '');
+    if (rawDigits.length < 10) {
+      setMissingPhoneAlertId(member.id);
       return;
     }
-    pendingWithPhone.forEach((m, idx) => {
-      setTimeout(() => {
-        const msg = buildSplitWhatsAppMessage({
-          friendName: m.name,
-          tripName,
-          amount: perPersonShare,
-          hostName,
-          hostUpi,
-          tone: 'standard'
-        });
-        openWhatsAppDirect(m.phone, msg);
-      }, idx * 700);
+    setMissingPhoneAlertId(null);
+    sound.playClick();
+    const message = buildSplitWhatsAppMessage({
+      friendName: member.name,
+      tripName,
+      amount: perPersonShare,
+      hostName,
+      hostUpi,
+      tone: 'standard'
     });
+    openWhatsAppDirect(member.phone, message);
+    setSentStatusMap(prev => ({ ...prev, [member.id]: true }));
   };
 
   const handleCopySummary = () => {
@@ -873,29 +896,27 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                   </div>
                 )}
 
-                {/* Group WhatsApp Sharing Button (Sabke Liye) */}
+                {/* 1. Send to Each Friend Individually (Har Dost Ko Alag-Alag WhatsApp) */}
+                <button
+                  type="button"
+                  onClick={handleOpenWhatsAppDispatcher}
+                  className="w-full py-3.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer font-['Space_Grotesk'] shadow-lg shadow-[#25D366]/25 active:scale-95 group"
+                  title="Har dost ko unka personal bill alag alag WhatsApp per bhejein"
+                >
+                  <MessageCircle className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" />
+                  <span>📲 Send to Each Friend (Alag-Alag Bhejein)</span>
+                </button>
+
+                {/* 2. Share Full Bill to WhatsApp Group (Sabka Hisaab Ek Sath) */}
                 <button
                   type="button"
                   onClick={handleSendGroupWhatsApp}
-                  className="w-full py-3.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer font-['Space_Grotesk'] shadow-lg shadow-[#25D366]/20 active:scale-95 group"
+                  className="w-full py-2.5 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30 font-bold text-xs font-mono transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                   title="Share full bill breakdown to WhatsApp Group or all friends at once"
                 >
-                  <MessageCircle className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" />
-                  <span>📢 Share Full Bill to All (WhatsApp Group)</span>
+                  <Users className="w-3.5 h-3.5" />
+                  <span>📢 Share Full Bill to WhatsApp Group</span>
                 </button>
-
-                {/* Optional Individual Nudge Button if members have phone numbers */}
-                {members.some(m => m.status === 'pending' && m.phone) && (
-                  <button
-                    type="button"
-                    onClick={handleNudgeAllPending}
-                    className="w-full py-2 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 text-[#25D366] text-xs font-mono font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    title="Send individual WhatsApp message to each friend with a saved phone number"
-                  >
-                    <Send className="w-3 h-3" />
-                    <span>Nudge {members.filter(m => m.status === 'pending' && m.phone).length} Pending Friends Individually</span>
-                  </button>
-                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -1152,6 +1173,178 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
           </div>
         );
       })()}
+
+      {/* Dedicated Multi-Friend WhatsApp Dispatcher Modal (Har Dost Ko Alag-Alag) */}
+      {showWhatsAppModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-[#121324] border border-[#25D366]/40 p-5 sm:p-6 shadow-2xl shadow-[#25D366]/15 max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 pb-4 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#25D366]/20 border border-[#25D366]/40 flex items-center justify-center text-[#25D366]">
+                  <MessageCircle className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-white font-['Space_Grotesk'] flex items-center gap-2">
+                    <span>Har Dost Ko Alag-Alag Bhejein</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/30">
+                      Personal Chat
+                    </span>
+                  </h3>
+                  <p className="text-xs text-white/50 font-mono">
+                    Har dost ko unka hisaab (₹{perPersonShare.toLocaleString('en-IN')}) direct unke WhatsApp per jayega
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowWhatsAppModal(false);
+                  setMissingPhoneAlertId(null);
+                }}
+                className="p-1.5 rounded-xl text-white/40 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Note / Guidance */}
+            <div className="mt-3 p-3 rounded-xl bg-[#25D366]/10 border border-[#25D366]/20 flex items-start gap-2.5 text-xs text-white/80 font-mono shrink-0">
+              <span className="text-base">💡</span>
+              <div className="text-[11px] leading-relaxed">
+                WhatsApp me direct ussi dost ka chat khulega jiske samne aap <strong>Send</strong> dabayenge. Agar number nahi hai to yahi type karein!
+              </div>
+            </div>
+
+            {/* Friends List (Scrollable) */}
+            <div className="mt-3 overflow-y-auto space-y-2.5 flex-1 pr-1 custom-scrollbar">
+              {members.filter(m => !m.isHost).length === 0 ? (
+                <div className="py-8 text-center text-white/50 text-xs font-mono">
+                  Abhi koi friend add nahi kiya hai. Pehle bill me friends add karein.
+                </div>
+              ) : (
+                members.filter(m => !m.isHost).map((friend) => {
+                  const isSent = !!sentStatusMap[friend.id];
+                  const isHighlighted = whatsAppTargetMemberId === friend.id;
+                  const hasMissingAlert = missingPhoneAlertId === friend.id;
+
+                  return (
+                    <div
+                      key={friend.id}
+                      className={`p-3 rounded-2xl border transition-all ${
+                        hasMissingAlert
+                          ? 'bg-amber-500/10 border-amber-400/60 shadow-lg shadow-amber-500/10'
+                          : isHighlighted
+                          ? 'bg-[#25D366]/10 border-[#25D366]/50'
+                          : 'bg-[#0B0C16] border-white/10 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-base">{friend.avatar || '👤'}</span>
+                          <span className="text-sm font-bold text-white font-['Space_Grotesk'] truncate">
+                            {friend.name}
+                          </span>
+                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                            friend.status === 'paid'
+                              ? 'bg-[#C6FF3D]/20 text-[#C6FF3D]'
+                              : 'bg-amber-400/20 text-amber-300'
+                          }`}>
+                            {friend.status === 'paid' ? 'Paid ✓' : `Share: ₹${perPersonShare.toLocaleString('en-IN')}`}
+                          </span>
+                        </div>
+
+                        {isSent && (
+                          <span className="text-[10px] font-mono font-bold text-[#25D366] bg-[#25D366]/15 border border-[#25D366]/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3" />
+                            <span>Sent</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Phone input row + Send Button */}
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-mono text-white/40 select-none">
+                            🇮🇳 +91
+                          </span>
+                          <input
+                            type="tel"
+                            placeholder="10-digit WhatsApp Number"
+                            value={friend.phone ? friend.phone.replace(/^(\+91|91)/, '') : ''}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                              handleUpdateMemberPhone(friend.id, val ? `91${val}` : '');
+                              if (val.length >= 10 && missingPhoneAlertId === friend.id) {
+                                setMissingPhoneAlertId(null);
+                              }
+                            }}
+                            className={`w-full pl-14 pr-2.5 py-1.5 rounded-xl bg-black/40 text-white text-xs font-mono border focus:outline-none transition-all ${
+                              hasMissingAlert
+                                ? 'border-amber-400 text-amber-200 placeholder:text-amber-300/40 focus:border-amber-300'
+                                : 'border-white/15 focus:border-[#25D366]'
+                            }`}
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSendIndividualFromModal(friend)}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95 ${
+                            isSent
+                              ? 'bg-white/10 hover:bg-white/20 text-white/90 border border-white/20'
+                              : 'bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] shadow-md shadow-[#25D366]/25'
+                          }`}
+                          title={`Send WhatsApp message directly to ${friend.name}`}
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>{isSent ? 'Send Again' : `Send to ${friend.name.split(' ')[0]} 🚀`}</span>
+                        </button>
+                      </div>
+
+                      {hasMissingAlert && (
+                        <div className="mt-1.5 text-[11px] font-mono text-amber-300 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          <span>Pehle {friend.name} ka 10-digit WhatsApp number dalein</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="mt-4 pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setShowWhatsAppModal(false);
+                  handleSendGroupWhatsApp();
+                }}
+                className="w-full sm:w-auto text-xs font-mono text-[#25D366] hover:underline flex items-center justify-center gap-1.5 py-1.5 cursor-pointer"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Ya fir WhatsApp Group me ek sath bhejein →</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setShowWhatsAppModal(false);
+                  setMissingPhoneAlertId(null);
+                }}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-mono font-medium transition-colors cursor-pointer text-center"
+              >
+                Done / Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
       {/* Floating Real-Time UPI Soundbox Payment Notification Toast */}

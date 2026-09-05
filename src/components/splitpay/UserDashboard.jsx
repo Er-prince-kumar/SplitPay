@@ -198,6 +198,16 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
       .filter(Boolean);
 
     const avatars = ['👨‍💻', '👩‍🎨', '🎒', '🕶️', '⚡', '🚀', '🏄', '🎧'];
+
+    const parseFriendEntry = (str) => {
+      const matchPhone = str.match(/(?:(?:\+91|91)?\s*)?([6-9]\d{9})/);
+      const phone = matchPhone ? matchPhone[1] : '';
+      const cleanName = str.replace(/(?:(?:\+91|91)?\s*)?([6-9]\d{9})/, '').replace(/[(),:]/g, '').trim();
+      return {
+        name: cleanName || str.trim(),
+        phone: phone ? `91${phone}` : ''
+      };
+    };
     
     // Host is always first member
     const membersList = [
@@ -209,14 +219,17 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
         status: 'paid',
         avatar: currentUser?.avatar || '👑'
       },
-      ...rawNames.map((name, i) => ({
-        id: Date.now() + i + 1,
-        name,
-        phone: '',
-        isHost: false,
-        status: 'pending',
-        avatar: avatars[i % avatars.length]
-      }))
+      ...rawNames.map((entry, i) => {
+        const parsed = parseFriendEntry(entry);
+        return {
+          id: Date.now() + i + 1,
+          name: parsed.name,
+          phone: parsed.phone,
+          isHost: false,
+          status: 'pending',
+          avatar: avatars[i % avatars.length]
+        };
+      })
     ];
 
     const newTrip = {
@@ -838,11 +851,11 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
                   type="text"
                   value={newTripFriends}
                   onChange={(e) => setNewTripFriends(e.target.value)}
-                  placeholder="e.g. Aman, Rohit, Priya, Simran"
+                  placeholder="e.g. Aman (9876543210), Rohit, Priya"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white focus:border-[#C6FF3D] focus:outline-none transition-colors"
                 />
                 <p className="text-[10px] text-white/40">
-                  Leave empty to create with default squad members.
+                  Dosto ke naam daalein (phone number bracket me optional hai).
                 </p>
               </div>
 

@@ -49,27 +49,24 @@ export const buildSplitWhatsAppMessage = ({
   tripName = 'Trip Bill',
   amount = 0,
   hostName = 'Organizer',
-  hostUpi = 'upi@bank',
-  paymentLink = '',
+  hostUpi = '',
   tone = 'standard'
 }) => {
   const formattedAmount = Number(amount).toLocaleString('en-IN');
-  const safeLink = paymentLink || `https://rzp.io/l/splitpay-${encodeURIComponent(tripName.toLowerCase().replace(/[^a-z0-9]/g, '-'))}`;
+  const directUpiLink = hostUpi
+    ? `upi://pay?pa=${hostUpi}&pn=${encodeURIComponent(hostName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(tripName || 'SplitPay')}`
+    : '';
 
-  switch (tone) {
-    case 'friendly':
-      return `Hey ${friendName}! 😄 Hope you had an amazing time on *${tripName}*!\n\nJust wrapping up the group expenses — your split comes to *₹${formattedAmount}*.\n\n⚡ *Pay in 1 tap via UPI:*\n${safeLink}\n\n👤 Host: ${hostName} (${hostUpi})\nThanks a ton! 🙌`;
-
-    case 'urgent':
-      return `Yo ${friendName}! ⏰ Quick friendly callout for *${tripName}*:\nThe trip expenses are waiting to be settled. Your pending share is *₹${formattedAmount}*.\n\n👉 *Clear it now in 1 tap:*\n${safeLink}\n\n👤 UPI: ${hostUpi}\nCheers! ⚡`;
-
-    case 'fun':
-      return `Bro ${friendName} 🍕 You ate the food, had the fun, now SplitPay wants the fund! 😂\nYour share for *${tripName}* is *₹${formattedAmount}*.\n\n💸 *Don't make ${hostName} chase you — 1-Tap Pay here:*\n${safeLink}\n\nClear karo bhai! ✨`;
-
-    case 'standard':
-    default:
-      return `Hey ${friendName}! 👋\nHere is your share for *${tripName}*:\n💰 Amount: *₹${formattedAmount}*\n👤 Host: ${hostName} (${hostUpi})\n\n⚡ *Pay instantly in 1-tap via UPI:*\n${safeLink}\n\nPowered by SplitPay ⚡`;
+  let text = `Hey ${friendName}! 👋\n`;
+  text += `Here is your personal split share for *${tripName}*:\n\n`;
+  text += `💰 *Amount to Pay*: *₹${formattedAmount}*\n`;
+  text += `👤 *Organizer*: ${hostName}\n`;
+  text += `💳 *UPI ID*: *${hostUpi || 'Ask host'}*\n\n`;
+  if (directUpiLink) {
+    text += `⚡ *1-Tap Pay via UPI* (GPay/PhonePe/Paytm):\n${directUpiLink}\n\n`;
   }
+  text += `Please clear your share when you get a chance! 🙏\n_Sent via SplitPay ⚡_`;
+  return text;
 };
 
 /**
