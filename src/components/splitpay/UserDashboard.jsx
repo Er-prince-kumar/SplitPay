@@ -62,21 +62,68 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
   // Storage key specific to current user
   const storageKey = `splitpay_trips_${currentUser?.email || 'guest'}`;
 
-  const [trips, setTrips] = useState(() => {
+  const getInitialTrips = () => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Exclude any old pre-filled dummy seeds
-          return parsed.filter(t => !['trip-1', 'trip-2', 'trip-3', 'trip-4'].includes(t.id));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleaned = parsed.filter(t => !['trip-1', 'trip-2', 'trip-3', 'trip-4'].includes(t.id));
+          if (cleaned.length > 0) return cleaned;
         }
       }
     } catch (e) {
       console.warn("Could not load user trips from localStorage", e);
     }
-    return [];
-  });
+    // Default initial campus trip for logged-in user so dashboard is immediately ready
+    return [
+      {
+        id: 'trip-manali-' + (currentUser?.email ? currentUser.email.replace(/\W/g, '') : 'default'),
+        tripName: 'Manali Weekend Trip',
+        totalAmount: 4800,
+        hostName: currentUser?.name || 'Prince Kumar',
+        hostUpi: currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : 'prince@upi'),
+        category: 'Campus Trip',
+        createdAt: new Date().toISOString().split('T')[0],
+        members: [
+          {
+            id: 1,
+            name: currentUser?.name || 'Prince Kumar',
+            phone: currentUser?.phone || '9876543210',
+            isHost: true,
+            status: 'paid',
+            avatar: currentUser?.avatar || '👑'
+          },
+          {
+            id: 2,
+            name: 'Aman Sharma',
+            phone: '9812345678',
+            isHost: false,
+            status: 'paid',
+            avatar: '👨‍💻'
+          },
+          {
+            id: 3,
+            name: 'Rohit Verma',
+            phone: '9823456789',
+            isHost: false,
+            status: 'pending',
+            avatar: '🎒'
+          },
+          {
+            id: 4,
+            name: 'Priya Patel',
+            phone: '9834567890',
+            isHost: false,
+            status: 'pending',
+            avatar: '👩‍🎨'
+          }
+        ]
+      }
+    ];
+  };
+
+  const [trips, setTrips] = useState(getInitialTrips);
 
   // Keep trips synced with storage events
   useEffect(() => {
@@ -152,6 +199,33 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
     if (window.confirm("Are you sure you want to remove this trip from your dashboard?")) {
       setTrips(prev => prev.filter(t => t.id !== tripId));
     }
+  };
+
+  // Toggle entire trip settlement status (Mark 100% Settled / Reopen)
+  const handleToggleSettleTrip = (tripId, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    sound.playClick();
+
+    setTrips(prev => prev.map(t => {
+      if (t.id !== tripId) return t;
+      const isCurrentlySettled = t.members.every(m => m.status === 'paid');
+      const newStatus = isCurrentlySettled ? 'pending' : 'paid';
+
+      if (!isCurrentlySettled) {
+        sound.playUpiSuccess();
+        confetti({
+          particleCount: 65,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#C6FF3D', '#0082FB', '#25D366']
+        });
+      }
+
+      return {
+        ...t,
+        members: t.members.map(m => m.isHost ? m : { ...m, status: newStatus })
+      };
+    }));
   };
 
   const handleCreateTrip = (e) => {
@@ -410,40 +484,54 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
               </p>
             </div>
 
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#14152A] border border-white/10 text-xs font-mono self-start sm:self-auto">
+            {/* Filter Pills and Add Trip */}
+            <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#14152A] border border-white/10 text-xs font-mono">
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setActiveFilter('all');
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                    activeFilter === 'all' ? 'bg-[#C6FF3D] text-[#0B0C16] font-bold' : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  All ({trips.length})
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setActiveFilter('active');
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                    activeFilter === 'active' ? 'bg-[#C6FF3D] text-[#0B0C16] font-bold' : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  In Progress
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setActiveFilter('settled');
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                    activeFilter === 'settled' ? 'bg-[#C6FF3D] text-[#0B0C16] font-bold' : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  Settled
+                </button>
+              </div>
+
               <button
+                type="button"
                 onClick={() => {
                   sound.playClick();
-                  setActiveFilter('all');
+                  setIsCreateModalOpen(true);
                 }}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  activeFilter === 'all' ? 'bg-[#C6FF3D] text-[#0B0C16] font-bold' : 'text-white/60 hover:text-white'
-                }`}
+                className="px-3 py-1.5 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-bold text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
               >
-                All ({trips.length})
-              </button>
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setActiveFilter('active');
-                }}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  activeFilter === 'active' ? 'bg-[#C6FF3D] text-[#0B0C16] font-bold' : 'text-white/60 hover:text-white'
-                }`}
-              >
-                In Progress
-              </button>
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setActiveFilter('settled');
-                }}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  activeFilter === 'settled' ? 'bg-[#C6FF3D] text-[#0B0C16] font-bold' : 'text-white/60 hover:text-white'
-                }`}
-              >
-                Settled
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Trip</span>
               </button>
             </div>
           </div>
@@ -513,15 +601,25 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
                         </span>
                         
                         {isSettled ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#25D366] bg-[#25D366]/15 px-2 py-0.5 rounded-full border border-[#25D366]/30">
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleSettleTrip(trip.id, e)}
+                            className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#25D366] bg-[#25D366]/15 hover:bg-[#25D366]/25 px-2 py-0.5 rounded-full border border-[#25D366]/30 transition-colors"
+                            title="100% Settled. Click to reopen."
+                          >
                             <CheckCircle2 className="w-2.5 h-2.5" />
-                            <span>100% Settled</span>
-                          </span>
+                            <span>100% Settled ✓</span>
+                          </button>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-amber-400 bg-amber-400/15 px-2 py-0.5 rounded-full border border-amber-400/30">
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleSettleTrip(trip.id, e)}
+                            className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-amber-400 hover:text-[#C6FF3D] bg-amber-400/15 hover:bg-[#C6FF3D]/15 px-2 py-0.5 rounded-full border border-amber-400/30 hover:border-[#C6FF3D]/30 transition-colors"
+                            title="Click to Mark Settled"
+                          >
                             <Clock className="w-2.5 h-2.5" />
                             <span>In Progress</span>
-                          </span>
+                          </button>
                         )}
                       </div>
 
@@ -579,14 +677,31 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
 
                     {/* Card Bottom Actions */}
                     <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenTripInSplitter(trip)}
-                        className="text-xs font-mono font-bold text-[#C6FF3D] hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>Open in Splitter</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenTripInSplitter(trip)}
+                          className="text-xs font-mono font-bold text-[#C6FF3D] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Open in Splitter</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+
+                        {/* Settle / Mark Paid Toggle Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleSettleTrip(trip.id, e)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm active:scale-95 ${
+                            isSettled
+                              ? 'bg-[#25D366]/15 hover:bg-amber-400/15 text-[#25D366] hover:text-amber-400 border border-[#25D366]/30 hover:border-amber-400/30'
+                              : 'bg-[#C6FF3D]/15 hover:bg-[#C6FF3D]/25 text-[#C6FF3D] border border-[#C6FF3D]/40'
+                          }`}
+                          title={isSettled ? "Trip is settled. Click to reopen as in progress." : "Click to mark this entire trip as 100% settled"}
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{isSettled ? "Settled ✓" : "Mark Settled"}</span>
+                        </button>
+                      </div>
 
                       <button
                         type="button"

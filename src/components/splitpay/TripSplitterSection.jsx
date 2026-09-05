@@ -285,6 +285,33 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     sound.playUpiSuccess();
   };
 
+  const handleMarkAllSettled = () => {
+    sound.playUpiSuccess();
+    confetti({
+      particleCount: 70,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#C6FF3D', '#0082FB', '#25D366']
+    });
+    setMembers(prev => prev.map(m => ({ ...m, status: 'paid' })));
+
+    try {
+      const storedAct = localStorage.getItem('splitpay_payment_activity');
+      const actList = storedAct ? JSON.parse(storedAct) : [];
+      actList.unshift({
+        id: 'act-' + Date.now(),
+        payerName: 'All Squad Members',
+        amount: numAmount,
+        tripName: tripName || 'Group Split',
+        ref: 'UPI' + Math.floor(100000 + Math.random() * 900000),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'Verified (100% Settled)'
+      });
+      localStorage.setItem('splitpay_payment_activity', JSON.stringify(actList.slice(0, 10)));
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {}
+  };
+
   const handleSendWhatsApp = (member) => {
     sound.playClick();
     const message = buildSplitWhatsAppMessage({
@@ -582,13 +609,17 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                           </button>
                         </div>
                       ) : (
-                        <span
-                          className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 bg-amber-400/15 text-amber-400 border border-amber-400/30 select-none cursor-default"
-                          title={`Payment pending for ${member.name}`}
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmPayment(member)}
+                          className="px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1.5 bg-amber-400/15 hover:bg-[#C6FF3D]/20 text-amber-400 hover:text-[#C6FF3D] border border-amber-400/30 hover:border-[#C6FF3D]/50 transition-all cursor-pointer shadow-sm active:scale-95 group/btn"
+                          title={`Click to mark ${member.name} as Paid`}
                         >
-                          <Clock className="w-3 h-3" />
-                          <span>Pending</span>
-                        </span>
+                          <Clock className="w-3 h-3 group-hover/btn:hidden" />
+                          <CheckCircle2 className="w-3 h-3 hidden group-hover/btn:inline text-[#C6FF3D]" />
+                          <span className="group-hover/btn:hidden">Pending</span>
+                          <span className="hidden group-hover/btn:inline">Mark Paid ✓</span>
+                        </button>
                       )}
 
                       {!member.isHost && (
@@ -694,6 +725,24 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
               {/* Primary Actions */}
               <div className="space-y-2.5 pt-2">
+                {/* Settle Entire Bill Button */}
+                {paidCount < members.length ? (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllSettled}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#C6FF3D]/15 to-[#0082FB]/15 hover:from-[#C6FF3D]/25 hover:to-[#0082FB]/25 text-[#C6FF3D] border border-[#C6FF3D]/40 font-bold text-xs font-mono transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#C6FF3D]/10 active:scale-95"
+                    title="Mark all pending members as paid"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-[#C6FF3D]" />
+                    <span>Mark Entire Bill Settled (All Paid)</span>
+                  </button>
+                ) : (
+                  <div className="w-full py-2 rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 text-[#25D366] text-xs font-mono font-bold flex items-center justify-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>✓ 100% Fully Settled!</span>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => {
