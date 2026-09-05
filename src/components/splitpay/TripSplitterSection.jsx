@@ -34,6 +34,9 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.tripName && parsed.tripName !== 'Goa Beach Shack & Cabs' && parsed.totalAmount !== 7400) {
+          if (parsed.hostUpi && (parsed.hostUpi === 'prince@oksbi' || parsed.hostUpi.endsWith('@upi') || parsed.hostUpi.endsWith('@campus.splitpay'))) {
+            parsed.hostUpi = '';
+          }
           return parsed;
         }
       }
@@ -52,9 +55,8 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   const [hostName, setHostName] = useState(
     currentUser?.name || (initialData?.hostName && initialData.hostName !== 'Prince Kumar' ? initialData.hostName : '')
   );
-  const [hostUpi, setHostUpi] = useState(
-    currentUser?.upiId || (initialData?.hostUpi && initialData.hostUpi !== 'prince@oksbi' && !initialData.hostUpi.endsWith('@campus.splitpay') ? initialData.hostUpi : '')
-  );
+  // Always start blank so user can enter their UPI ID ("waha bas enter kerne ke liiye aye")
+  const [hostUpi, setHostUpi] = useState('');
 
   const [editingMemberPhoneId, setEditingMemberPhoneId] = useState(null);
   const [tempPhone, setTempPhone] = useState('');
@@ -93,17 +95,22 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   const [members, setMembers] = useState(getInitialMembers);
 
-  // Clean up any old dummy storage keys
+  // Clean up any old dummy storage keys and clear stale auto-generated UPI
   useEffect(() => {
     try {
+      const old3 = localStorage.getItem('splitpay_active_trip_v3');
+      if (old3) {
+        const parsed = JSON.parse(old3);
+        if (parsed && parsed.hostUpi && (parsed.hostUpi === 'prince@oksbi' || parsed.hostUpi.includes('9876543210') || parsed.hostUpi.endsWith('@upi') || parsed.hostUpi.endsWith('@campus.splitpay'))) {
+          parsed.hostUpi = '';
+          localStorage.setItem('splitpay_active_trip_v3', JSON.stringify(parsed));
+          setHostUpi('');
+        }
+      }
       const old1 = localStorage.getItem('splitpay_active_trip_v2');
-      if (old1 && old1.includes('Goa Beach Shack')) {
-        localStorage.removeItem('splitpay_active_trip_v2');
-      }
+      if (old1) localStorage.removeItem('splitpay_active_trip_v2');
       const old2 = localStorage.getItem('splitpay_active_trip');
-      if (old2 && old2.includes('Goa Beach Shack')) {
-        localStorage.removeItem('splitpay_active_trip');
-      }
+      if (old2) localStorage.removeItem('splitpay_active_trip');
     } catch (e) {}
   }, []);
 
@@ -124,11 +131,10 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }
   }, [tripName, totalAmount, hostName, hostUpi, members]);
 
-  // Sync host name, UPI and host member whenever currentUser changes / logs in
+  // Sync host name and host member whenever currentUser changes / logs in
   useEffect(() => {
     if (currentUser) {
       if (currentUser.name) setHostName(currentUser.name);
-      if (currentUser.upiId) setHostUpi(currentUser.upiId);
 
       setMembers(prev => {
         if (!prev || prev.length === 0) {
@@ -526,7 +532,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                 <Smartphone className="w-4 h-4 text-[#C6FF3D] absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
               <p className="text-[11px] text-white/40 font-mono">
-                Friends will send settlements directly to this UPI ID. You can re-edit it anytime.
+                Enter your UPI ID here to receive settlements from friends. You can edit it anytime.
               </p>
             </div>
 

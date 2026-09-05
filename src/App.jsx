@@ -32,6 +32,11 @@ function App() {
       if (stored) {
         const user = JSON.parse(stored);
         if (user && user.email) {
+          // Purge any old fake auto-generated UPI from previous sessions
+          if (user.upiId && (user.upiId.includes('9876543210') || user.upiId.endsWith('@campus.splitpay') || user.upiId === 'prince@oksbi' || user.upiId === 'prince@upi' || user.upiId.endsWith('@upi'))) {
+            user.upiId = '';
+            localStorage.setItem('splitpay_user', JSON.stringify(user));
+          }
           setCurrentUser(user);
         }
       }
