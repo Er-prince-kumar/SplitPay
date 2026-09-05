@@ -113,17 +113,10 @@ function App() {
             currentUser={currentUser}
             onApplyToSplitter={handleApplyAITrip}
           />
-
-          {/* Value Proposition & Security */}
-          <ProblemSection />
-
-          {/* Core Features & Security */}
-          <FeaturesGrid />
-          <TrustRazorpay />
         </div>
       ) : (
-        /* Public Visitor Experience: Hero & How SplitPay Works Landing Page */
-        <div className="pt-16">
+        /* Public Visitor Experience: Complete Landing Page Before Login */
+        <div className="pt-16 space-y-0">
           <Hero3D 
             onOpenAuth={() => setIsAuthOpen(true)}
             onOpenHowItWorks={() => {
@@ -142,6 +135,15 @@ function App() {
             onOpenInteractiveDemo={() => setIsHowItWorksOpen(true)} 
             onOpenAuth={() => setIsAuthOpen(true)} 
           />
+
+          {/* The Shared Bill Problem Section */}
+          <ProblemSection />
+
+          {/* Core Features Section */}
+          <FeaturesGrid />
+
+          {/* Enterprise Payment Infrastructure / Razorpay Security */}
+          <TrustRazorpay />
         </div>
       )}
 

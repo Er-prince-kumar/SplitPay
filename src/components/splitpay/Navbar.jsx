@@ -93,30 +93,6 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
                 <span className="w-1.5 h-1.5 rounded-full bg-[#C6FF3D] animate-pulse" />
                 <span>AI Assistant</span>
               </button>
-              <button 
-                type="button"
-                className="hover:text-white transition-colors cursor-pointer text-sm font-medium"
-                onClick={() => {
-                  sound.playClick();
-                  if (onOpenHowItWorks) onOpenHowItWorks();
-                }}
-              >
-                How it works
-              </button>
-              <a 
-                href="#features" 
-                className="hover:text-white transition-colors cursor-pointer"
-                onClick={(e) => scrollToSection(e, 'features')}
-              >
-                Features
-              </a>
-              <a 
-                href="#trust" 
-                className="hover:text-white transition-colors cursor-pointer"
-                onClick={(e) => scrollToSection(e, 'trust')}
-              >
-                Security
-              </a>
             </>
           ) : (
             <>
@@ -135,6 +111,27 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
               >
                 How it works
               </button>
+              <a 
+                href="#problem" 
+                className="hover:text-white transition-colors cursor-pointer text-sm font-medium text-white/80"
+                onClick={(e) => scrollToSection(e, 'problem')}
+              >
+                Why SplitPay
+              </a>
+              <a 
+                href="#features" 
+                className="hover:text-white transition-colors cursor-pointer text-sm font-medium text-white/80"
+                onClick={(e) => scrollToSection(e, 'features')}
+              >
+                Features
+              </a>
+              <a 
+                href="#trust" 
+                className="hover:text-white transition-colors cursor-pointer text-sm font-medium text-white/80"
+                onClick={(e) => scrollToSection(e, 'trust')}
+              >
+                Security
+              </a>
               <button 
                 type="button"
                 onClick={() => {
@@ -327,7 +324,7 @@ const Navbar = ({ onOpenWaitlist, onOpenDemo, onOpenAuth, onOpenAIChat, currentU
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#C6FF3D]/10 text-[#C6FF3D] border border-[#C6FF3D]/30">Demo</span>
             </button>
 
-            {currentUser && (
+            {!currentUser && (
               <>
                 <a 
                   href="#problem" 
