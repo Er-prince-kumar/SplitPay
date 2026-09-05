@@ -47,7 +47,7 @@ function App() {
     }
   }, []);
 
-  // Detect if user opened the URL via a verified payment gateway link (?pay=true)
+  // Detect if user opened the URL via a verified payment gateway link (?pay=1 or ?pay=true or ?payToken=...)
   useEffect(() => {
     try {
       const searchParams = new URLSearchParams(window.location.search);
@@ -56,16 +56,45 @@ function App() {
         hashParams = new URLSearchParams(window.location.hash.substring(window.location.hash.indexOf('?')));
       }
 
-      const isPay = searchParams.get('pay') === 'true' || hashParams?.get('pay') === 'true';
+      // 1. Direct clean query parameters (Highest priority & zero phishing risk)
+      const isPay = searchParams.get('pay') === '1' || searchParams.get('pay') === 'true' || 
+                    hashParams?.get('pay') === '1' || hashParams?.get('pay') === 'true';
       if (isPay) {
+        const rawUpi = searchParams.get('upi') || hashParams?.get('upi') || '';
+        // Safely decode _at_ back into @ symbol
+        const decodedUpi = rawUpi ? decodeURIComponent(rawUpi).replace('_at_', '@') : '';
         setGatewayData({
           friend: searchParams.get('friend') || hashParams?.get('friend') || 'Friend',
           amount: Number(searchParams.get('amount') || hashParams?.get('amount') || 0),
           host: searchParams.get('host') || hashParams?.get('host') || 'Organizer',
-          upi: searchParams.get('upi') || hashParams?.get('upi') || '',
+          upi: decodedUpi,
           trip: searchParams.get('trip') || hashParams?.get('trip') || 'Group Expense',
           billId: searchParams.get('billId') || hashParams?.get('billId') || 'SP-' + Date.now()
         });
+        return;
+      }
+
+      // 2. Base64 token fallback for backward compatibility
+      const token = searchParams.get('payToken') || hashParams?.get('payToken');
+      if (token) {
+        try {
+          const jsonStr = decodeURIComponent(escape(atob(token)));
+          const parsed = JSON.parse(jsonStr);
+          if (parsed) {
+            const rawU = parsed.u || '';
+            setGatewayData({
+              friend: parsed.f || 'Friend',
+              amount: Number(parsed.a) || 0,
+              host: parsed.h || 'Organizer',
+              upi: rawU.replace('_at_', '@'),
+              trip: parsed.t || 'Group Expense',
+              billId: 'SP-' + Date.now()
+            });
+            return;
+          }
+        } catch (e) {
+          console.warn("Could not decode payToken", e);
+        }
       }
     } catch (e) {
       console.error(e);

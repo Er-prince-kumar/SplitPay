@@ -145,10 +145,11 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }
   }, [tripName, totalAmount, hostName, hostUpi, members]);
 
-  // Sync host name and host member whenever currentUser changes / logs in
+  // Sync host name, upiId, and host member whenever currentUser changes / logs in
   useEffect(() => {
     if (currentUser) {
       if (currentUser.name) setHostName(currentUser.name);
+      if (currentUser.upiId && !hostUpi) setHostUpi(currentUser.upiId);
 
       setMembers(prev => {
         if (!prev || prev.length === 0) {
@@ -169,7 +170,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
         } : m);
       });
     }
-  }, [currentUser]);
+  }, [currentUser, hostUpi]);
 
   // Sync external data applied from SplitPay AI or User Dashboard
   useEffect(() => {
@@ -410,6 +411,23 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     } catch (e) {}
   };
 
+  const checkPromptHostUpi = () => {
+    if (!hostUpi || !hostUpi.trim()) {
+      const enterNow = window.confirm(
+        "⚠️ Tip: Aapne apna 'RECEIVING UPI ID' enter nahi kiya hai!\n\nAgar aap abhi UPI ID enter karenge toh dosto ke link me aapka UPI ID pre-filled rahega aur direct settlement hogi.\n\nKya aap abhi apna UPI ID enter karna chahte hain?"
+      );
+      if (enterNow) {
+        const upiInput = document.querySelector('input[placeholder*="name@okhdfcbank"]');
+        if (upiInput) {
+          upiInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          upiInput.focus();
+        }
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleSendWhatsApp = (member) => {
     sound.playClick();
     const cleanDigits = (member.phone || '').replace(/\D/g, '');
@@ -419,6 +437,8 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       setShowWhatsAppModal(true);
       return;
     }
+
+    if (!checkPromptHostUpi()) return;
 
     const message = buildSplitWhatsAppMessage({
       friendName: member.name,
@@ -434,6 +454,8 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   const handleSendGroupWhatsApp = () => {
     sound.playClick();
+    if (!checkPromptHostUpi()) return;
+
     const message = buildGroupSplitWhatsAppMessage({
       tripName: tripName || 'Group Split',
       totalAmount: numAmount,
@@ -464,6 +486,9 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     }
     setMissingPhoneAlertId(null);
     sound.playClick();
+
+    if (!checkPromptHostUpi()) return;
+
     const message = buildSplitWhatsAppMessage({
       friendName: member.name,
       tripName,

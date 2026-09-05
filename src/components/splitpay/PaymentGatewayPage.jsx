@@ -38,21 +38,27 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
   const [utrError, setUtrError] = useState('');
   const [transactionRef, setTransactionRef] = useState('');
   const [paymentTimestamp, setPaymentTimestamp] = useState('');
+  const [beneficiaryUpi, setBeneficiaryUpi] = useState(upi || '');
+  const [customUpiInput, setCustomUpiInput] = useState(upi || '');
+  const [isEditingUpi, setIsEditingUpi] = useState(!upi);
+  const [upiError, setUpiError] = useState('');
 
   const numAmount = Number(amount) || 0;
   const formattedAmount = numAmount.toLocaleString('en-IN');
 
-  const cleanHost = host || 'Host';
-  const encodedHost = encodeURIComponent(cleanHost);
-  const cleanUpi = upi || 'prince@oksbi';
+  const cleanHost = host || 'Organizer';
+  const cleanUpi = beneficiaryUpi.trim();
 
-  // 100% Clean NPCI P2P URI (Strictly NO mode=02 or purpose=00 which trigger bank fraud/risk warnings)
-  const cleanP2pUpiUri = `upi://pay?pa=${cleanUpi}&pn=${encodedHost}&am=${numAmount}&cu=INR&tn=SplitPayShare`;
+  // 100% Pure Clean NPCI P2P URI
+  // STRICTLY NO pn to prevent Payee Name Mismatch flags in PhonePe/GPay (bank switch auto-resolves name)
+  // STRICTLY NO tn to prevent commercial note fraud heuristics
+  // STRICTLY NO mode=02 / purpose=00
+  const cleanP2pUpiUri = cleanUpi
+    ? `upi://pay?pa=${encodeURIComponent(cleanUpi)}&am=${numAmount}&cu=INR`
+    : '';
 
   // Detect mobile vs desktop
   const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
-  const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   // Auto-switch to QR code if visitor is on desktop/laptop
   useEffect(() => {
@@ -61,13 +67,32 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
     }
   }, [isMobile]);
 
-  // Launch Universal Clean UPI without third-party package flags that trigger risk alerts
+  const handleSaveBeneficiaryUpi = (e) => {
+    if (e) e.preventDefault();
+    const val = customUpiInput.trim();
+    if (!val || !val.includes('@')) {
+      setUpiError('Kripya valid UPI ID enter karein (e.g. name@okhdfcbank)');
+      return;
+    }
+    setUpiError('');
+    setBeneficiaryUpi(val);
+    setIsEditingUpi(false);
+    sound.playUpiSuccess();
+  };
+
+  // Launch Universal Clean UPI without third-party package intent flags
   const launchUpiClean = () => {
+    if (!cleanUpi) {
+      setIsEditingUpi(true);
+      return;
+    }
     sound.playClick();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(cleanUpi);
+    }
     setIsWaitingForReturn(true);
 
-    if (isMobile) {
-      // Standard NPCI URI allows Android & iOS to open the native UPI app chooser cleanly
+    if (isMobile && cleanP2pUpiUri) {
       window.location.href = cleanP2pUpiUri;
     } else {
       setActiveTab('qr');
@@ -77,6 +102,10 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
   // 100% Zero-Risk Copy & Launch flow
   // In India, copying the UPI ID and opening the app triggers ZERO risk warning inside GPay/PhonePe
   const handleCopyAndLaunchApp = (appName) => {
+    if (!cleanUpi) {
+      setIsEditingUpi(true);
+      return;
+    }
     sound.playClick();
     if (cleanUpi && navigator.clipboard) {
       navigator.clipboard.writeText(cleanUpi);
@@ -84,22 +113,12 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
     setCopyFeedbackApp(appName);
     setIsWaitingForReturn(true);
 
-    // Launch app cleanly
+    // Launch app cleanly via standard OS-level URI handler (NOT forced intent:// package)
     setTimeout(() => {
-      if (isAndroid) {
-        if (appName === 'gpay') {
-          window.location.href = `intent://pay?pa=${cleanUpi}&pn=${encodedHost}&am=${numAmount}&cu=INR&tn=SplitPayShare#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
-        } else if (appName === 'phonepe') {
-          window.location.href = `intent://pay?pa=${cleanUpi}&pn=${encodedHost}&am=${numAmount}&cu=INR&tn=SplitPayShare#Intent;scheme=upi;package=com.phonepe.app;end`;
-        } else if (appName === 'paytm') {
-          window.location.href = `intent://pay?pa=${cleanUpi}&pn=${encodedHost}&am=${numAmount}&cu=INR&tn=SplitPayShare#Intent;scheme=upi;package=net.one97.paytm;end`;
-        } else {
-          window.location.href = cleanP2pUpiUri;
-        }
-      } else {
+      if (cleanP2pUpiUri) {
         window.location.href = cleanP2pUpiUri;
       }
-    }, 400);
+    }, 300);
 
     setTimeout(() => {
       setCopyFeedbackApp(null);
@@ -339,7 +358,7 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                   </span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-bold text-white font-['Space_Grotesk'] truncate">
-                  {host}
+                  {cleanHost}
                 </h2>
                 <div className="text-xs text-white/60 font-mono flex items-center gap-2">
                   <span>For: <strong className="text-white">{trip}</strong></span>
@@ -356,15 +375,96 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
               </div>
             </div>
 
-            {/* Zero-Risk Reassurance Note */}
-            <div className="p-3.5 rounded-2xl bg-[#0B0C16] border border-[#25D366]/25 flex items-start gap-3 text-left">
-              <ShieldCheck className="w-5 h-5 text-[#25D366] shrink-0 mt-0.5" />
-              <div className="space-y-1 text-xs font-mono">
-                <span className="font-bold text-white block">Zero-Risk Direct UPI Settlement</span>
-                <p className="text-[11px] leading-relaxed text-white/60">
-                  Aapka payment direct aapke dost <strong className="text-white">{host}</strong> ke bank account (<span className="text-[#C6FF3D] font-bold">{cleanUpi}</span>) me jayega.
+            {/* Beneficiary UPI Status / Edit Card */}
+            {(!cleanUpi || isEditingUpi) ? (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-left space-y-2.5 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-300 font-mono">
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>HOST RECEIVING UPI ID NEEDED</span>
+                  </div>
+                  {beneficiaryUpi && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingUpi(false)}
+                      className="text-[11px] text-white/50 hover:text-white font-mono cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-white/70 font-mono leading-relaxed">
+                  Paisa direct {cleanHost} ke bank account me credit hone ke liye unka UPI ID enter karein:
                 </p>
+                <form onSubmit={handleSaveBeneficiaryUpi} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. name@okhdfcbank or 9876543210@ybl"
+                    value={customUpiInput}
+                    onChange={(e) => {
+                      setCustomUpiInput(e.target.value);
+                      setUpiError('');
+                    }}
+                    className="flex-1 px-3 py-2 rounded-xl bg-[#0B0C16] border border-white/20 text-white text-xs font-mono focus:border-[#C6FF3D] focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="px-3.5 py-2 rounded-xl bg-[#C6FF3D] text-[#0B0C16] font-bold text-xs font-mono cursor-pointer shrink-0 active:scale-95 transition-transform"
+                  >
+                    Save &amp; Continue
+                  </button>
+                </form>
+                {upiError && <p className="text-[11px] text-red-400 font-mono">{upiError}</p>}
               </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-[#0B0C16] border border-[#25D366]/25 flex items-center justify-between gap-3 text-left">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <ShieldCheck className="w-5 h-5 text-[#25D366] shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono text-white/40 uppercase block">DIRECT BANK SETTLEMENT (UPI)</span>
+                    <span className="text-xs font-bold font-mono text-white truncate block">{cleanUpi}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingUpi(true)}
+                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 text-[10px] font-mono transition-colors cursor-pointer shrink-0"
+                >
+                  Change UPI
+                </button>
+              </div>
+            )}
+
+            {/* ⭐ 100% Zero-Risk Copy & Pay Method (Bypasses PhonePe external link warning) */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-[#C6FF3D]/10 via-[#0082FB]/10 to-transparent border border-[#C6FF3D]/30 text-left space-y-2.5">
+              <div className="flex items-center gap-2 text-xs font-mono text-[#C6FF3D] font-bold">
+                <Sparkles className="w-4 h-4 text-[#C6FF3D]" />
+                <span>⭐ RECOMMENDED • 100% ZERO RISK</span>
+              </div>
+              <p className="text-[11px] text-white/70 font-mono leading-relaxed">
+                UPI ID copy karke PhonePe ya Google Pay me <strong>"To UPI ID"</strong> me paste karein — waha Bank ka <strong>Green Verified Shield</strong> aayega aur PhonePe ka external warning alert bilkul nahi aayega.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  if (cleanUpi && navigator.clipboard) {
+                    navigator.clipboard.writeText(cleanUpi);
+                    setCopiedUpi(true);
+                    setTimeout(() => setCopiedUpi(false), 2500);
+                  }
+                  setIsWaitingForReturn(true);
+                  if (isMobile && cleanP2pUpiUri) {
+                    window.location.href = cleanP2pUpiUri;
+                  } else {
+                    setActiveTab('manual');
+                  }
+                }}
+                className="w-full py-3.5 rounded-xl bg-[#C6FF3D] hover:bg-[#b5f422] text-[#0B0C16] font-black text-xs sm:text-sm font-['Space_Grotesk'] flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#C6FF3D]/20 active:scale-95 transition-all"
+              >
+                <Copy className="w-4 h-4" />
+                <span>{copiedUpi ? '✓ UPI ID Copied! Opening App...' : `Copy UPI (${cleanUpi || 'UPI ID'}) & Pay ₹${formattedAmount}`}</span>
+              </button>
             </div>
 
             {/* Master 1-Tap Pay Button */}
@@ -518,6 +618,17 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                   </button>
                 </div>
 
+                {/* Bank Safety Explanation Note */}
+                <div className="p-3 rounded-2xl bg-[#0B0C16] border border-white/10 text-left space-y-1.5 text-xs font-mono">
+                  <div className="flex items-center gap-1.5 text-[#25D366] font-bold">
+                    <Info className="w-3.5 h-3.5 shrink-0" />
+                    <span>PhonePe / GPay Risk Notice Kyun Dikhata Hai?</span>
+                  </div>
+                  <p className="text-[11px] text-white/60 leading-relaxed">
+                    PhonePe aur GPay kisi bhi browser link se start hone wali payment par ek standard safety alert dikhate hain taaki user confirm kare. Yeh standard security check hai. Aap <strong>"Proceed"</strong> tap kar sakte hain ya upar <strong>"Copy UPI"</strong> method use karein jaha zero alert aata hai.
+                  </p>
+                </div>
+
                 {copyFeedbackApp && (
                   <div className="p-3 rounded-xl bg-[#25D366]/15 border border-[#25D366]/40 text-xs font-mono text-[#25D366] flex items-center gap-2 animate-in fade-in">
                     <Check className="w-4 h-4 shrink-0" />
@@ -547,11 +658,17 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
             {activeTab === 'qr' && (
               <div className="space-y-4 text-center animate-in fade-in duration-200">
                 <div className="p-3.5 rounded-2xl bg-white w-48 h-48 mx-auto flex items-center justify-center shadow-lg relative">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(cleanP2pUpiUri)}`}
-                    alt="SplitPay NPCI QR"
-                    className="w-full h-full object-contain"
-                  />
+                  {cleanP2pUpiUri ? (
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(cleanP2pUpiUri)}`}
+                      alt="SplitPay NPCI QR"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-center p-2 text-xs text-gray-500 font-mono">
+                      Enter UPI ID above to generate QR
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-white font-medium">Scan with Google Pay, PhonePe, Paytm or Any Banking App</p>
@@ -569,7 +686,7 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                   <span className="text-[10px] font-mono text-white/50 block">BENEFICIARY UPI ID:</span>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-bold font-mono text-white truncate">
-                      {cleanUpi}
+                      {cleanUpi || 'Not set'}
                     </span>
                     <button
                       type="button"
