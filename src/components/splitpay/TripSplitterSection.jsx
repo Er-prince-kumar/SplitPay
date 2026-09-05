@@ -38,8 +38,9 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       const saved = localStorage.getItem('splitpay_active_trip_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.tripName && parsed.tripName !== 'Goa Beach Shack & Cabs' && parsed.totalAmount !== 7400) {
-          if (parsed.hostUpi && (parsed.hostUpi === 'prince@oksbi' || parsed.hostUpi.endsWith('@upi') || parsed.hostUpi.endsWith('@campus.splitpay'))) {
+        if (parsed && typeof parsed === 'object') {
+          // Clean up only legacy dummy placeholder addresses
+          if (parsed.hostUpi === 'prince@oksbi' || parsed.hostUpi === 'yourname@upi') {
             parsed.hostUpi = '';
           }
           return parsed;
@@ -55,13 +56,30 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   const [tripName, setTripName] = useState(initialData?.tripName || '');
   const [totalAmount, setTotalAmount] = useState(
-    initialData?.totalAmount !== undefined && initialData?.totalAmount !== 7400 ? initialData.totalAmount : ''
+    initialData?.totalAmount !== undefined ? initialData.totalAmount : ''
   );
   const [hostName, setHostName] = useState(
-    currentUser?.name || (initialData?.hostName && initialData.hostName !== 'Prince Kumar' ? initialData.hostName : '')
+    currentUser?.name || initialData?.hostName || ''
   );
-  // Always start blank so user can enter their UPI ID ("waha bas enter kerne ke liiye aye")
-  const [hostUpi, setHostUpi] = useState('');
+
+  // Restore saved UPI ID from localStorage or profile (Never resets on refresh)
+  const getInitialHostUpi = () => {
+    try {
+      const direct = localStorage.getItem('splitpay_saved_upi');
+      if (direct && direct.trim() && direct !== 'prince@oksbi' && direct !== 'yourname@upi') {
+        return direct.trim();
+      }
+      if (initialData?.hostUpi && initialData.hostUpi.trim() && initialData.hostUpi !== 'prince@oksbi' && initialData.hostUpi !== 'yourname@upi') {
+        return initialData.hostUpi.trim();
+      }
+      if (currentUser?.upiId && currentUser.upiId.trim() && currentUser.upiId !== 'prince@oksbi') {
+        return currentUser.upiId.trim();
+      }
+    } catch (e) {}
+    return '';
+  };
+
+  const [hostUpi, setHostUpi] = useState(getInitialHostUpi);
 
   const [editingMemberPhoneId, setEditingMemberPhoneId] = useState(null);
   const [tempPhone, setTempPhone] = useState('');
@@ -84,22 +102,14 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   const [utrError, setUtrError] = useState('');
 
   const getInitialMembers = () => {
-    if (initialData?.members && Array.isArray(initialData.members)) {
-      const hasOldDummy = initialData.members.some(m => m.name === 'Rohit K.' || m.name === 'Priya S.' || m.name === 'Aman M.');
-      if (!hasOldDummy && initialData.members.length > 0) {
-        return initialData.members.map(m => m.isHost ? {
-          ...m,
-          name: currentUser?.name || m.name || 'You (Host)',
-          phone: currentUser?.phone || m.phone || '',
-          avatar: currentUser?.avatar || m.avatar || '👑'
-        } : m);
-      }
+    if (initialData?.members && Array.isArray(initialData.members) && initialData.members.length > 0) {
+      return initialData.members;
     }
     return [
       {
         id: 1,
         name: currentUser?.name || 'You (Host)',
-        phone: currentUser?.phone || '',
+        phone: currentUser?.phone || localStorage.getItem('splitpay_saved_phone') || '',
         isHost: true,
         status: 'paid',
         avatar: currentUser?.avatar || '👑'
@@ -109,24 +119,20 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
   const [members, setMembers] = useState(getInitialMembers);
 
-  // Clean up any old dummy storage keys and clear stale auto-generated UPI
-  useEffect(() => {
+  // Auto-sync hostUpi to persistent storage whenever user changes it
+  const handleHostUpiChange = (val) => {
+    setHostUpi(val);
     try {
-      const old3 = localStorage.getItem('splitpay_active_trip_v3');
-      if (old3) {
-        const parsed = JSON.parse(old3);
-        if (parsed && parsed.hostUpi && (parsed.hostUpi === 'prince@oksbi' || parsed.hostUpi.includes('9876543210') || parsed.hostUpi.endsWith('@upi') || parsed.hostUpi.endsWith('@campus.splitpay'))) {
-          parsed.hostUpi = '';
-          localStorage.setItem('splitpay_active_trip_v3', JSON.stringify(parsed));
-          setHostUpi('');
-        }
+      if (val && val.trim()) {
+        localStorage.setItem('splitpay_saved_upi', val.trim());
       }
-      const old1 = localStorage.getItem('splitpay_active_trip_v2');
-      if (old1) localStorage.removeItem('splitpay_active_trip_v2');
-      const old2 = localStorage.getItem('splitpay_active_trip');
-      if (old2) localStorage.removeItem('splitpay_active_trip');
+      const savedUser = localStorage.getItem('splitpay_user');
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        localStorage.setItem('splitpay_user', JSON.stringify({ ...u, upiId: val ? val.trim() : '' }));
+      }
     } catch (e) {}
-  }, []);
+  };
 
   // Auto-persist active trip, members, and payment settlement status to localStorage on every change
   useEffect(() => {
@@ -149,14 +155,19 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   useEffect(() => {
     if (currentUser) {
       if (currentUser.name) setHostName(currentUser.name);
-      if (currentUser.upiId && !hostUpi) setHostUpi(currentUser.upiId);
+      if (currentUser.upiId && !hostUpi) {
+        setHostUpi(currentUser.upiId);
+        try {
+          localStorage.setItem('splitpay_saved_upi', currentUser.upiId);
+        } catch (e) {}
+      }
 
       setMembers(prev => {
         if (!prev || prev.length === 0) {
           return [{
             id: 1,
             name: currentUser.name || 'You (Host)',
-            phone: currentUser.phone || '',
+            phone: currentUser.phone || localStorage.getItem('splitpay_saved_phone') || '',
             isHost: true,
             status: 'paid',
             avatar: currentUser.avatar || '👑'
@@ -165,7 +176,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
         return prev.map(m => m.isHost ? {
           ...m,
           name: currentUser.name || m.name || 'You (Host)',
-          phone: currentUser.phone !== undefined ? currentUser.phone : m.phone,
+          phone: (currentUser.phone && currentUser.phone.trim()) ? currentUser.phone : (m.phone || localStorage.getItem('splitpay_saved_phone') || ''),
           avatar: currentUser.avatar || m.avatar || '👑'
         } : m);
       });
@@ -475,7 +486,28 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   };
 
   const handleUpdateMemberPhone = (memberId, newPhone) => {
-    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, phone: newPhone } : m));
+    setMembers(prev => {
+      const updated = prev.map(m => m.id === memberId ? { ...m, phone: newPhone } : m);
+      try {
+        const saved = localStorage.getItem('splitpay_active_trip_v3');
+        const parsed = saved ? JSON.parse(saved) : {};
+        localStorage.setItem('splitpay_active_trip_v3', JSON.stringify({
+          ...parsed,
+          members: updated,
+          updatedAt: new Date().toISOString()
+        }));
+        const targetMember = updated.find(m => m.id === memberId);
+        if (targetMember?.isHost && newPhone) {
+          localStorage.setItem('splitpay_saved_phone', newPhone);
+          const savedUser = localStorage.getItem('splitpay_user');
+          if (savedUser) {
+            const u = JSON.parse(savedUser);
+            localStorage.setItem('splitpay_user', JSON.stringify({ ...u, phone: newPhone }));
+          }
+        }
+      } catch (e) {}
+      return updated;
+    });
   };
 
   const handleSendIndividualFromModal = (member) => {
@@ -681,7 +713,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                     type="button"
                     onClick={() => {
                       sound.playClick();
-                      setHostUpi('');
+                      handleHostUpiChange('');
                     }}
                     className="text-[11px] text-white/40 hover:text-red-400 font-mono transition-colors cursor-pointer"
                     title="Clear UPI to re-enter"
@@ -694,8 +726,8 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                 <input
                   type="text"
                   value={hostUpi}
-                  onChange={(e) => setHostUpi(e.target.value)}
-                  placeholder="Enter UPI ID (e.g. name@okhdfcbank)"
+                  onChange={(e) => handleHostUpiChange(e.target.value)}
+                  placeholder="Enter UPI ID (e.g. name@okhdfcbank or 9876543210@ybl)"
                   className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white text-sm focus:border-[#C6FF3D] focus:outline-none transition-colors font-mono"
                 />
                 <Smartphone className="w-4 h-4 text-[#C6FF3D] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -765,11 +797,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                                 if (e.key === 'Enter') {
                                   sound.playClick();
                                   const clean = tempPhone.trim();
-                                  setMembers(prev => prev.map(m => m.id === member.id ? { ...m, phone: clean } : m));
-                                  if (member.isHost && currentUser) {
-                                    localStorage.setItem('splitpay_user', JSON.stringify({ ...currentUser, phone: clean }));
-                                    window.dispatchEvent(new Event('storage'));
-                                  }
+                                  handleUpdateMemberPhone(member.id, clean);
                                   setEditingMemberPhoneId(null);
                                 }
                                 if (e.key === 'Escape') setEditingMemberPhoneId(null);
@@ -780,11 +808,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                               onClick={() => {
                                 sound.playClick();
                                 const clean = tempPhone.trim();
-                                setMembers(prev => prev.map(m => m.id === member.id ? { ...m, phone: clean } : m));
-                                if (member.isHost && currentUser) {
-                                  localStorage.setItem('splitpay_user', JSON.stringify({ ...currentUser, phone: clean }));
-                                  window.dispatchEvent(new Event('storage'));
-                                }
+                                handleUpdateMemberPhone(member.id, clean);
                                 setEditingMemberPhoneId(null);
                               }}
                               className="px-1.5 py-0.5 bg-[#C6FF3D] text-[#0B0C16] rounded text-[10px] font-bold cursor-pointer hover:bg-[#b5f422]"

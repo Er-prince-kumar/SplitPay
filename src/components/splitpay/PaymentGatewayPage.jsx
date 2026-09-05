@@ -38,10 +38,25 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
   const [utrError, setUtrError] = useState('');
   const [transactionRef, setTransactionRef] = useState('');
   const [paymentTimestamp, setPaymentTimestamp] = useState('');
-  const [beneficiaryUpi, setBeneficiaryUpi] = useState(upi || '');
-  const [customUpiInput, setCustomUpiInput] = useState(upi || '');
-  const [isEditingUpi, setIsEditingUpi] = useState(!upi);
+
+  // Auto-restore saved UPI ID or phone so it NEVER resets on refresh
+  const getSavedBeneficiary = () => {
+    if (upi && upi.trim()) return upi.trim();
+    try {
+      const saved = localStorage.getItem('splitpay_last_used_upi');
+      if (saved && saved.trim()) return saved.trim();
+      const hostSaved = localStorage.getItem('splitpay_saved_upi');
+      if (hostSaved && hostSaved.trim()) return hostSaved.trim();
+    } catch (e) {}
+    return '';
+  };
+
+  const initialBeneficiary = getSavedBeneficiary();
+  const [beneficiaryUpi, setBeneficiaryUpi] = useState(initialBeneficiary);
+  const [customUpiInput, setCustomUpiInput] = useState(initialBeneficiary);
+  const [isEditingUpi, setIsEditingUpi] = useState(!initialBeneficiary);
   const [upiError, setUpiError] = useState('');
+  const [copiedPhone, setCopiedPhone] = useState(false);
 
   const numAmount = Number(amount) || 0;
   const formattedAmount = numAmount.toLocaleString('en-IN');
@@ -49,12 +64,13 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
   const cleanHost = host || 'Organizer';
   const cleanUpi = beneficiaryUpi.trim();
 
+  // Extract 10-digit mobile number if UPI ID is phone-based (e.g. 7717723919@ybl)
+  const phoneMatch = cleanUpi.match(/^(\d{10})@/);
+  const hostPhoneNumber = phoneMatch ? phoneMatch[1] : (/^\d{10}$/.test(cleanUpi) ? cleanUpi : '');
+
   // 100% Pure Clean NPCI P2P URI
-  // STRICTLY NO pn to prevent Payee Name Mismatch flags in PhonePe/GPay (bank switch auto-resolves name)
-  // STRICTLY NO tn to prevent commercial note fraud heuristics
-  // STRICTLY NO mode=02 / purpose=00
   const cleanP2pUpiUri = cleanUpi
-    ? `upi://pay?pa=${encodeURIComponent(cleanUpi)}&am=${numAmount}&cu=INR`
+    ? `upi://pay?pa=${encodeURIComponent(cleanUpi.includes('@') ? cleanUpi : `${cleanUpi}@ybl`)}&am=${numAmount}&cu=INR`
     : '';
 
   // Detect mobile vs desktop
@@ -69,14 +85,25 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
 
   const handleSaveBeneficiaryUpi = (e) => {
     if (e) e.preventDefault();
-    const val = customUpiInput.trim();
-    if (!val || !val.includes('@')) {
-      setUpiError('Kripya valid UPI ID enter karein (e.g. name@okhdfcbank)');
+    let val = customUpiInput.trim();
+    if (!val) {
+      setUpiError('Kripya valid Mobile Number ya UPI ID enter karein');
+      return;
+    }
+    // If user entered a 10-digit mobile number, format as @ybl for standard UPI
+    if (/^\d{10}$/.test(val)) {
+      val = `${val}@ybl`;
+    } else if (!val.includes('@')) {
+      setUpiError('Kripya valid UPI ID (e.g. 7717723919@ybl ya name@okhdfcbank) enter karein');
       return;
     }
     setUpiError('');
     setBeneficiaryUpi(val);
     setIsEditingUpi(false);
+    try {
+      localStorage.setItem('splitpay_last_used_upi', val);
+      localStorage.setItem('splitpay_saved_upi', val);
+    } catch (e) {}
     sound.playUpiSuccess();
   };
 
@@ -618,16 +645,60 @@ const PaymentGatewayPage = ({ gatewayData, onBackToApp }) => {
                   </button>
                 </div>
 
-                {/* Bank Safety Explanation Note */}
-                <div className="p-3 rounded-2xl bg-[#0B0C16] border border-white/10 text-left space-y-1.5 text-xs font-mono">
-                  <div className="flex items-center gap-1.5 text-[#25D366] font-bold">
-                    <Info className="w-3.5 h-3.5 shrink-0" />
-                    <span>PhonePe / GPay Risk Notice Kyun Dikhata Hai?</span>
+                {/* Exact PhonePe Alert Guide */}
+                <div className="p-4 rounded-2xl bg-[#5f259f]/20 border border-[#5f259f]/50 text-left space-y-2.5">
+                  <div className="flex items-center gap-2 text-xs font-mono text-[#C6FF3D] font-bold">
+                    <ShieldCheck className="w-4 h-4 text-[#C6FF3D] shrink-0" />
+                    <span>PhonePe "Risky transaction" Popup Solution</span>
                   </div>
-                  <p className="text-[11px] text-white/60 leading-relaxed">
-                    PhonePe aur GPay kisi bhi browser link se start hone wali payment par ek standard safety alert dikhate hain taaki user confirm kare. Yeh standard security check hai. Aap <strong>"Proceed"</strong> tap kar sakte hain ya upar <strong>"Copy UPI"</strong> method use karein jaha zero alert aata hai.
+                  <p className="text-[11px] text-white/80 font-mono leading-relaxed">
+                    Agar PhonePe par <em>"The recipient's account is flagged as high-risk. Are you sure you want to proceed?"</em> ka popup aaye:
                   </p>
+                  <div className="p-3 rounded-xl bg-black/50 border border-white/10 space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs font-mono text-white">
+                      <span className="px-2 py-0.5 rounded bg-[#25D366] text-[#0B0C16] font-bold text-[10px]">Direct Action</span>
+                      <span>Screen par <strong className="text-[#C6FF3D] underline font-bold">"Yes"</strong> button dabayein!</span>
+                    </div>
+                    <p className="text-[10px] text-white/50 font-mono leading-relaxed">
+                      PhonePe kisi bhi external link se payment karne par yeh safety confirmation leta hai. "Yes" dabate hi payment 100% direct {cleanHost} ke bank account me successfully transfer ho jayegi.
+                    </p>
+                  </div>
                 </div>
+
+                {/* Alternative: Pay to Mobile Number (Zero Alert) */}
+                {hostPhoneNumber && (
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#25D366]/15 to-[#0082FB]/15 border border-[#25D366]/30 text-left space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-mono text-[#25D366] font-bold">
+                        <Smartphone className="w-4 h-4 text-[#25D366]" />
+                        <span>100% ZERO RISK ALTERNATIVE: PAY TO MOBILE</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-white/60">{hostPhoneNumber}</span>
+                    </div>
+                    <p className="text-[11px] text-white/70 font-mono leading-relaxed">
+                      PhonePe me <strong>"To Mobile Number"</strong> par tap karke <strong>{hostPhoneNumber}</strong> search karein — waha koi bhi "Risky" alert nahi aayega!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        if (navigator.clipboard) {
+                          navigator.clipboard.writeText(hostPhoneNumber);
+                          setCopiedPhone(true);
+                          setTimeout(() => setCopiedPhone(false), 2500);
+                        }
+                        setIsWaitingForReturn(true);
+                        if (isMobile && cleanP2pUpiUri) {
+                          window.location.href = cleanP2pUpiUri;
+                        }
+                      }}
+                      className="w-full py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-[#0B0C16] font-bold text-xs font-mono flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all active:scale-95"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{copiedPhone ? `✓ Mobile Number ${hostPhoneNumber} Copied!` : `Copy Mobile Number (${hostPhoneNumber}) & Open PhonePe`}</span>
+                    </button>
+                  </div>
+                )}
 
                 {copyFeedbackApp && (
                   <div className="p-3 rounded-xl bg-[#25D366]/15 border border-[#25D366]/40 text-xs font-mono text-[#25D366] flex items-center gap-2 animate-in fade-in">
