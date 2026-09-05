@@ -18,12 +18,50 @@ import { sound } from '../../utils/audio';
 import { processUserMessage } from '../../utils/aiEngine';
 import { openWhatsAppDirect } from '../../utils/whatsapp';
 
+const renderFormattedText = (text, isUser) => {
+  if (!text) return null;
+  if (isUser) return text;
+
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-1">
+      {lines.map((line, lineIdx) => {
+        if (line.trim() === '---') {
+          return <hr key={lineIdx} className="border-white/10 my-2" />;
+        }
+
+        // Match **bold** and *italic*
+        const tokens = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+        const formattedLine = tokens.map((token, i) => {
+          if (token.startsWith('**') && token.endsWith('**')) {
+            return <strong key={i} className="font-bold text-white tracking-wide">{token.slice(2, -2)}</strong>;
+          }
+          if (token.startsWith('*') && token.endsWith('*')) {
+            return <em key={i} className="italic text-[#C6FF3D]">{token.slice(1, -1)}</em>;
+          }
+          return token;
+        });
+
+        const isBullet = line.trim().startsWith('•') || line.trim().startsWith('-');
+        return (
+          <div
+            key={lineIdx}
+            className={`${isBullet ? 'pl-2 text-white/80' : ''} ${line.trim() === '' ? 'h-2' : ''}`}
+          >
+            {formattedLine}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const AIChatDrawer = ({ isOpen, onToggle, onApplyToSplitter, currentTripData }) => {
   const [messages, setMessages] = useState([
     {
       id: 1,
       sender: 'bot',
-      text: "Hey! I'm **SplitPay AI** — your campus split co-pilot. ⚡\n\nDescribe any bill to split (e.g. *\"Split ₹4,800 Goa cab between Rohit, Priya, Aman, and me\"*) or ask me to draft a funny WhatsApp reminder!",
+      text: "Namaste! Main hoon **SplitPay AI** — aapka 24/7 campus expense co-pilot. ⚡\n\nAap mujhse is website ke **saare features**, **kaise use karein**, **har function kaise kaam karta hai**, bills calculate karna ya funny WhatsApp reminders banana — sab kuch pooch sakte hain!",
       time: 'Just now'
     }
   ]);
@@ -34,10 +72,12 @@ const AIChatDrawer = ({ isOpen, onToggle, onApplyToSplitter, currentTripData }) 
   const chatEndRef = useRef(null);
 
   const quickPrompts = [
+    "📖 Website ke saare features aur use kaise kare?",
+    "🚀 Step-by-step guide: SplitPay kaise chalayein?",
+    "📸 Receipt OCR Scanner kaise kaam karta hai?",
+    "⚡ 1-Tap UPI aur dynamic QR kaise kaam karta hai?",
     "🏖️ Split ₹4,800 Goa cab among 4 friends",
-    "🎭 Write Bollywood meme reminder for Rohit",
-    "🍗 Split ₹1,800 midnight biryani for 3 people",
-    "⚡ How does 1-tap UPI settlement work?"
+    "🎭 Write Bollywood meme reminder for Rohit"
   ];
 
   useEffect(() => {
@@ -217,7 +257,7 @@ const AIChatDrawer = ({ isOpen, onToggle, onApplyToSplitter, currentTripData }) 
                         : 'bg-[#0B0C16] text-white/90 border border-white/10 font-sans'
                     }`}
                   >
-                    {msg.text}
+                    {renderFormattedText(msg.text, msg.sender === 'user')}
                   </div>
 
                   {/* Render Structured Bill Card if Parsed */}
