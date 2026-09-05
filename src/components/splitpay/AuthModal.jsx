@@ -292,7 +292,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           phone: cleanPhone,
           password: cleanPassword,
           college: formData.college,
-          upiId: formData.upiId.trim() || `${cleanPhoneDigits}@upi` || `${cleanName.toLowerCase().replace(/\s+/g, '')}@upi`,
+          upiId: formData.upiId.trim() || '',
           roomNo: '',
           avatar: '👑',
           createdAt: new Date().toISOString()
@@ -386,7 +386,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
             phone: !isEmailInput ? identifier : '',
             password: cleanPassword,
             college: campuses[0],
-            upiId: `${identifier.replace(/[^a-zA-Z0-9]/g, '')}@upi`,
+            upiId: '',
             roomNo: '',
             avatar: '👑',
             createdAt: new Date().toISOString()

@@ -180,7 +180,7 @@ function App() {
         currentTripData={{
           tripName: 'Group Split',
           hostName: currentUser?.name || 'You (Host)',
-          hostUpi: currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '')
+          hostUpi: currentUser?.upiId || ''
         }}
         currentUser={currentUser}
       />

@@ -276,11 +276,10 @@ const ProfileModal = ({ isOpen, onClose, currentUser, onUpdateProfile }) => {
               <div className="relative">
                 <input
                   type="text"
-                  required
                   name="upiId"
                   value={formData.upiId}
                   onChange={handleChange}
-                  placeholder="e.g. prince@oksbi"
+                  placeholder="Enter UPI ID (e.g. name@okhdfcbank)"
                   className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#0B0C16] border border-white/15 text-white font-bold focus:border-[#C6FF3D] focus:outline-none transition-colors"
                 />
                 <Smartphone className="w-3.5 h-3.5 text-[#C6FF3D] absolute left-2.5 top-3" />

@@ -53,9 +53,11 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
     currentUser?.name || (initialData?.hostName && initialData.hostName !== 'Prince Kumar' ? initialData.hostName : '')
   );
   const [hostUpi, setHostUpi] = useState(
-    currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '') || (initialData?.hostUpi && initialData.hostUpi !== 'prince@oksbi' ? initialData.hostUpi : '')
+    currentUser?.upiId || (initialData?.hostUpi && initialData.hostUpi !== 'prince@oksbi' && !initialData.hostUpi.endsWith('@campus.splitpay') ? initialData.hostUpi : '')
   );
 
+  const [editingMemberPhoneId, setEditingMemberPhoneId] = useState(null);
+  const [tempPhone, setTempPhone] = useState('');
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberPhone, setNewMemberPhone] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
@@ -126,8 +128,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
   useEffect(() => {
     if (currentUser) {
       if (currentUser.name) setHostName(currentUser.name);
-      const computedUpi = currentUser.upiId || (currentUser.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '');
-      if (computedUpi) setHostUpi(computedUpi);
+      if (currentUser.upiId) setHostUpi(currentUser.upiId);
 
       setMembers(prev => {
         if (!prev || prev.length === 0) {
@@ -143,7 +144,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
         return prev.map(m => m.isHost ? {
           ...m,
           name: currentUser.name || m.name || 'You (Host)',
-          phone: currentUser.phone || m.phone || '',
+          phone: currentUser.phone !== undefined ? currentUser.phone : m.phone,
           avatar: currentUser.avatar || m.avatar || '👑'
         } : m);
       });
@@ -345,7 +346,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       setTripName('');
       setTotalAmount('');
       setHostName(currentUser?.name || '');
-      setHostUpi(currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : ''));
+      setHostUpi(currentUser?.upiId || '');
       setMembers([
         {
           id: 1,
@@ -498,14 +499,35 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
 
             {/* Host UPI Setting */}
             <div className="space-y-1.5 pt-1">
-              <label className="text-xs font-mono text-white/50 block">YOUR UPI ID (RECEIVES PAYMENTS)</label>
-              <input
-                type="text"
-                value={hostUpi}
-                onChange={(e) => setHostUpi(e.target.value)}
-                placeholder="Enter your UPI ID (e.g. name@okhdfcbank)"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white text-sm focus:border-[#C6FF3D] focus:outline-none transition-colors font-mono"
-              />
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-mono text-white/50 block">YOUR RECEIVING UPI ID</label>
+                {hostUpi && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setHostUpi('');
+                    }}
+                    className="text-[11px] text-white/40 hover:text-red-400 font-mono transition-colors cursor-pointer"
+                    title="Clear UPI to re-enter"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={hostUpi}
+                  onChange={(e) => setHostUpi(e.target.value)}
+                  placeholder="Enter UPI ID (e.g. name@okhdfcbank)"
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white text-sm focus:border-[#C6FF3D] focus:outline-none transition-colors font-mono"
+                />
+                <Smartphone className="w-4 h-4 text-[#C6FF3D] absolute left-3 top-1/2 -translate-y-1/2" />
+              </div>
+              <p className="text-[11px] text-white/40 font-mono">
+                Friends will send settlements directly to this UPI ID. You can re-edit it anytime.
+              </p>
             </div>
 
             {/* Squad Members Header */}
@@ -555,12 +577,73 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                             </span>
                           )}
                         </div>
-                        {member.phone ? (
-                          <div className="text-[11px] text-white/40 font-mono flex items-center gap-1">
-                            <Phone className="w-2.5 h-2.5" />
-                            <span>{formatDisplayPhone(member.phone)}</span>
+                        {editingMemberPhoneId === member.id ? (
+                          <div className="flex items-center gap-1.5 mt-1" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="tel"
+                              value={tempPhone}
+                              onChange={(e) => setTempPhone(e.target.value)}
+                              placeholder="10-digit mobile"
+                              autoFocus
+                              className="px-2 py-0.5 rounded bg-[#15162B] border border-[#C6FF3D]/50 text-white text-xs font-mono w-28 sm:w-32 focus:outline-none"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  sound.playClick();
+                                  const clean = tempPhone.trim();
+                                  setMembers(prev => prev.map(m => m.id === member.id ? { ...m, phone: clean } : m));
+                                  if (member.isHost && currentUser) {
+                                    localStorage.setItem('splitpay_user', JSON.stringify({ ...currentUser, phone: clean }));
+                                    window.dispatchEvent(new Event('storage'));
+                                  }
+                                  setEditingMemberPhoneId(null);
+                                }
+                                if (e.key === 'Escape') setEditingMemberPhoneId(null);
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                sound.playClick();
+                                const clean = tempPhone.trim();
+                                setMembers(prev => prev.map(m => m.id === member.id ? { ...m, phone: clean } : m));
+                                if (member.isHost && currentUser) {
+                                  localStorage.setItem('splitpay_user', JSON.stringify({ ...currentUser, phone: clean }));
+                                  window.dispatchEvent(new Event('storage'));
+                                }
+                                setEditingMemberPhoneId(null);
+                              }}
+                              className="px-1.5 py-0.5 bg-[#C6FF3D] text-[#0B0C16] rounded text-[10px] font-bold cursor-pointer hover:bg-[#b5f422]"
+                              title="Save phone number"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingMemberPhoneId(null)}
+                              className="px-1.5 py-0.5 bg-white/10 text-white/60 rounded text-[10px] cursor-pointer hover:bg-white/20"
+                              title="Cancel"
+                            >
+                              ✕
+                            </button>
                           </div>
-                        ) : null}
+                        ) : (
+                          <div className="text-[11px] text-white/40 font-mono flex items-center gap-1.5 mt-0.5">
+                            <Phone className="w-2.5 h-2.5 text-white/40 shrink-0" />
+                            <span>{member.phone ? formatDisplayPhone(member.phone) : 'No Phone'}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                sound.playClick();
+                                setEditingMemberPhoneId(member.id);
+                                setTempPhone(member.phone || '');
+                              }}
+                              className="text-[10px] text-[#C6FF3D]/80 hover:text-[#C6FF3D] underline cursor-pointer ml-1"
+                              title={member.isHost ? "Edit your phone number" : "Edit member phone number"}
+                            >
+                              {member.phone ? 'Edit' : '+ Add'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 

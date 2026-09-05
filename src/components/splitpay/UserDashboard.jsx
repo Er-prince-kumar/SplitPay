@@ -224,7 +224,7 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
       tripName: newTripTitle.trim(),
       totalAmount: Number(newTripAmount),
       hostName: currentUser?.name || 'You (Host)',
-      hostUpi: currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : ''),
+      hostUpi: currentUser?.upiId || '',
       category: 'Custom Split',
       createdAt: new Date().toISOString().split('T')[0],
       members: membersList
@@ -287,26 +287,64 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
                     <span>•</span>
                   </>
                 )}
-                {currentUser?.phone && (
-                  <>
+                {currentUser?.phone ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      if (onOpenProfile) onOpenProfile();
+                    }}
+                    className="hover:text-[#C6FF3D] transition-colors flex items-center gap-1.5 cursor-pointer group"
+                    title="Click to edit host phone number"
+                  >
                     <span>📱 {currentUser.phone}</span>
-                    <span>•</span>
-                  </>
+                    <span className="text-[10px] text-white/40 group-hover:text-[#C6FF3D] underline">Edit</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      if (onOpenProfile) onOpenProfile();
+                    }}
+                    className="text-amber-400 hover:text-amber-300 font-mono text-[11px] underline cursor-pointer"
+                  >
+                    + Add Phone
+                  </button>
                 )}
-                <button
-                  onClick={handleCopyUpi}
-                  className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
-                  title="Click to copy UPI ID"
-                >
-                  <span>UPI: <strong className="text-white font-bold">{currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : 'Set UPI in Profile')}</strong></span>
-                  {currentUser?.upiId ? (
-                    copiedUpi ? (
-                      <Check className="w-3 h-3 text-[#C6FF3D]" />
-                    ) : (
-                      <Copy className="w-3 h-3 text-white/40" />
-                    )
-                  ) : null}
-                </button>
+                <span>•</span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      if (onOpenProfile) onOpenProfile();
+                    }}
+                    className="hover:text-[#C6FF3D] transition-colors flex items-center gap-1 cursor-pointer group"
+                    title="Click to edit UPI ID"
+                  >
+                    <span>UPI: <strong className={currentUser?.upiId ? "text-white font-bold" : "text-amber-400 font-bold"}>
+                      {currentUser?.upiId || 'Not Set'}
+                    </strong></span>
+                    <span className="text-[10px] text-white/40 group-hover:text-[#C6FF3D] underline">
+                      {currentUser?.upiId ? 'Edit' : '+ Add'}
+                    </span>
+                  </button>
+                  {currentUser?.upiId && (
+                    <button
+                      type="button"
+                      onClick={handleCopyUpi}
+                      className="p-1 hover:text-[#C6FF3D] text-white/40 transition-colors cursor-pointer"
+                      title="Copy UPI ID"
+                    >
+                      {copiedUpi ? (
+                        <Check className="w-3 h-3 text-[#C6FF3D]" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

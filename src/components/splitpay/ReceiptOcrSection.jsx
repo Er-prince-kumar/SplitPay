@@ -260,7 +260,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
         tripName: receiptName || 'Itemized Bill Split',
         totalAmount: splitResult.grandTotal,
         hostName: currentUser?.name || 'You (Host)',
-        hostUpi: currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : ''),
+        hostUpi: currentUser?.upiId || '',
         members: splitResult.breakdown.map((b) => ({
           id: b.id,
           name: b.name,
@@ -282,7 +282,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
   const handleCopySummary = () => {
     sound.playClick();
     sound.playUpiSuccess();
-    const hostUpiId = currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '');
+    const hostUpiId = currentUser?.upiId || '';
     const summary = buildItemizedWhatsAppSummary({
       receiptName: receiptName || 'Bill Split',
       breakdown: splitResult.breakdown,
@@ -300,7 +300,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
   // Share specific friend's breakdown on WhatsApp
   const handleShareFriendWhatsApp = (friendBreakdown) => {
     sound.playClick();
-    const hostUpiId = currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '');
+    const hostUpiId = currentUser?.upiId || '';
     const itemsList = friendBreakdown.items
       .map((it) => `${it.name} (₹${Math.round(it.sharePrice)}${it.isShared ? ' - shared' : ''})`)
       .join(', ');
@@ -790,7 +790,7 @@ const ReceiptOcrSection = ({ currentUser, onApplyToSplitter }) => {
 
                   <button
                     onClick={() => {
-                      const hostUpiId = currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : '');
+                      const hostUpiId = currentUser?.upiId || '';
                       const summary = buildItemizedWhatsAppSummary({
                         receiptName: receiptName || 'Bill Split',
                         breakdown: splitResult.breakdown,
