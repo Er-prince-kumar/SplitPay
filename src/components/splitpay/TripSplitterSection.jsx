@@ -16,7 +16,8 @@ import {
   Zap,
   RotateCcw,
   BookmarkCheck,
-  Camera
+  Camera,
+  Send
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/audio';

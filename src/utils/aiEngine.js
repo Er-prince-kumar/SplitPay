@@ -123,7 +123,9 @@ const getFallbackKey = () => {
   try {
     const encoded = 'QVEuQWI4Uk42SjBtTWF3MFZST1VydktwU0ZVbWUzSnhBMHFMVXZpUDZlN1NEd0ZfeGNxQkE=';
     if (typeof atob === 'function') return atob(encoded);
-    if (typeof Buffer !== 'undefined') return Buffer.from(encoded, 'base64').toString('utf-8');
+    if (typeof globalThis !== 'undefined' && globalThis.Buffer) {
+      return globalThis.Buffer.from(encoded, 'base64').toString('utf-8');
+    }
   } catch {
     return '';
   }
