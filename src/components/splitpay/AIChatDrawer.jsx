@@ -107,7 +107,7 @@ const AIChatDrawer = ({ isOpen, onToggle, onApplyToSplitter, currentTripData }) 
 
   const handleWhatsAppSend = (text) => {
     sound.playClick();
-    openWhatsAppDirect('9876543210', text);
+    openWhatsAppDirect('', text);
   };
 
   const handleClearChat = () => {

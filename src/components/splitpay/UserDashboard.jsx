@@ -68,59 +68,15 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const cleaned = parsed.filter(t => !['trip-1', 'trip-2', 'trip-3', 'trip-4'].includes(t.id));
+          const cleaned = parsed.filter(t => !['trip-1', 'trip-2', 'trip-3', 'trip-4'].includes(t.id) && !t.id.startsWith('trip-manali-'));
           if (cleaned.length > 0) return cleaned;
         }
       }
     } catch (e) {
       console.warn("Could not load user trips from localStorage", e);
     }
-    // Default initial campus trip for logged-in user so dashboard is immediately ready
-    return [
-      {
-        id: 'trip-manali-' + (currentUser?.email ? currentUser.email.replace(/\W/g, '') : 'default'),
-        tripName: 'Manali Weekend Trip',
-        totalAmount: 4800,
-        hostName: currentUser?.name || 'Prince Kumar',
-        hostUpi: currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : 'prince@upi'),
-        category: 'Campus Trip',
-        createdAt: new Date().toISOString().split('T')[0],
-        members: [
-          {
-            id: 1,
-            name: currentUser?.name || 'Prince Kumar',
-            phone: currentUser?.phone || '9876543210',
-            isHost: true,
-            status: 'paid',
-            avatar: currentUser?.avatar || '👑'
-          },
-          {
-            id: 2,
-            name: 'Aman Sharma',
-            phone: '9812345678',
-            isHost: false,
-            status: 'paid',
-            avatar: '👨‍💻'
-          },
-          {
-            id: 3,
-            name: 'Rohit Verma',
-            phone: '9823456789',
-            isHost: false,
-            status: 'pending',
-            avatar: '🎒'
-          },
-          {
-            id: 4,
-            name: 'Priya Patel',
-            phone: '9834567890',
-            isHost: false,
-            status: 'pending',
-            avatar: '👩‍🎨'
-          }
-        ]
-      }
-    ];
+    // Clean by default: trips are only shown when user creates them
+    return [];
   };
 
   const [trips, setTrips] = useState(getInitialTrips);
@@ -133,7 +89,7 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
-            setTrips(parsed.filter(t => !['trip-1', 'trip-2', 'trip-3', 'trip-4'].includes(t.id)));
+            setTrips(parsed.filter(t => !['trip-1', 'trip-2', 'trip-3', 'trip-4'].includes(t.id) && !t.id.startsWith('trip-manali-')));
           }
         }
       } catch (e) {}
@@ -247,16 +203,16 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
     const membersList = [
       {
         id: Date.now(),
-        name: currentUser?.name || 'Prince Kumar',
-        phone: '9876543210',
+        name: currentUser?.name || 'You (Host)',
+        phone: currentUser?.phone || '',
         isHost: true,
         status: 'paid',
-        avatar: '👑'
+        avatar: currentUser?.avatar || '👑'
       },
       ...rawNames.map((name, i) => ({
         id: Date.now() + i + 1,
         name,
-        phone: '98' + Math.floor(10000000 + Math.random() * 90000000),
+        phone: '',
         isHost: false,
         status: 'pending',
         avatar: avatars[i % avatars.length]
@@ -325,19 +281,31 @@ const UserDashboard = ({ currentUser, onSelectTrip, onOpenAIChat, onOpenProfile 
               </div>
               
               <div className="flex items-center gap-3 text-xs text-white/60 font-mono mt-1 flex-wrap">
-                <span>{currentUser?.college || 'Lovely Professional University (LPU)'}</span>
-                <span>•</span>
+                {currentUser?.college && (
+                  <>
+                    <span>{currentUser.college}</span>
+                    <span>•</span>
+                  </>
+                )}
+                {currentUser?.phone && (
+                  <>
+                    <span>📱 {currentUser.phone}</span>
+                    <span>•</span>
+                  </>
+                )}
                 <button
                   onClick={handleCopyUpi}
                   className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
                   title="Click to copy UPI ID"
                 >
                   <span>UPI: <strong className="text-white font-bold">{currentUser?.upiId || (currentUser?.phone ? `${currentUser.phone.replace(/\D/g, '')}@upi` : 'Set UPI in Profile')}</strong></span>
-                  {copiedUpi ? (
-                    <Check className="w-3 h-3 text-[#C6FF3D]" />
-                  ) : (
-                    <Copy className="w-3 h-3 text-white/40" />
-                  )}
+                  {currentUser?.upiId ? (
+                    copiedUpi ? (
+                      <Check className="w-3 h-3 text-[#C6FF3D]" />
+                    ) : (
+                      <Copy className="w-3 h-3 text-white/40" />
+                    )
+                  ) : null}
                 </button>
               </div>
             </div>

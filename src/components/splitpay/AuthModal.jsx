@@ -293,7 +293,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           password: cleanPassword,
           college: formData.college,
           upiId: formData.upiId.trim() || `${cleanPhoneDigits}@upi` || `${cleanName.toLowerCase().replace(/\s+/g, '')}@upi`,
-          roomNo: 'Hostel BH-4, Room 302',
+          roomNo: '',
           avatar: '👑',
           createdAt: new Date().toISOString()
         };
@@ -383,11 +383,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
           updatedUser = {
             name: isEmailInput ? identifier.split('@')[0].replace(/[._]/g, ' ') : 'Campus Member',
             email: isEmailInput ? cleanLoginEmail : `${cleanLoginPhone}@campus.splitpay`,
-            phone: !isEmailInput ? identifier : '9876543210',
+            phone: !isEmailInput ? identifier : '',
             password: cleanPassword,
             college: campuses[0],
             upiId: `${identifier.replace(/[^a-zA-Z0-9]/g, '')}@upi`,
-            roomNo: 'Hostel BH-4, Room 302',
+            roomNo: '',
             avatar: '👑',
             createdAt: new Date().toISOString()
           };
@@ -662,7 +662,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   type="tel"
                   name="phone"
                   required
-                  placeholder="e.g. 9876543210 (10-digit mobile)"
+                  placeholder="10-digit mobile number"
                   value={formData.phone}
                   onChange={handleChange}
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"
@@ -698,7 +698,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 <input
                   type="text"
                   name="upiId"
-                  placeholder="e.g. prince@oksbi or 9876543210@paytm"
+                  placeholder="e.g. yourname@upi (optional)"
                   value={formData.upiId}
                   onChange={handleChange}
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0B0C16] border border-white/15 text-white placeholder-white/30 text-xs focus:border-[#C6FF3D] focus:outline-none transition-colors"

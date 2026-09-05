@@ -167,7 +167,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
           const formatted = externalTripData.members.map((name, i) => ({
             id: Date.now() + i,
             name: typeof name === 'string' ? name : name.name,
-            phone: (typeof name === 'object' && name.phone) ? name.phone : '9876543210',
+            phone: (typeof name === 'object' && name.phone) ? name.phone : '',
             isHost: i === 0,
             status: i === 0 ? 'paid' : 'pending',
             avatar: avatars[i % avatars.length]
@@ -322,7 +322,7 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
       hostUpi,
       tone: 'standard'
     });
-    openWhatsAppDirect(member.phone || '9876543210', message);
+    openWhatsAppDirect(member.phone || '', message);
   };
 
   const handleCopySummary = () => {
@@ -555,10 +555,12 @@ const TripSplitterSection = ({ currentUser, onOpenAuth, externalTripData }) => {
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-white/40 font-mono flex items-center gap-1">
-                          <Phone className="w-2.5 h-2.5" />
-                          <span>{member.phone ? formatDisplayPhone(member.phone) : 'No Phone'}</span>
-                        </div>
+                        {member.phone ? (
+                          <div className="text-[11px] text-white/40 font-mono flex items-center gap-1">
+                            <Phone className="w-2.5 h-2.5" />
+                            <span>{formatDisplayPhone(member.phone)}</span>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
 

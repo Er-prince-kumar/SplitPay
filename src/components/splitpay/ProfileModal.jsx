@@ -264,7 +264,7 @@ const ProfileModal = ({ isOpen, onClose, currentUser, onUpdateProfile }) => {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="e.g. 9876543210"
+                  placeholder="10-digit mobile number"
                   className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#0B0C16] border border-white/15 text-white focus:border-[#C6FF3D] focus:outline-none transition-colors"
                 />
                 <Phone className="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-3" />
